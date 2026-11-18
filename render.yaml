@@ -1,0 +1,20 @@
+# Render Blueprint for Riaya: one Python web service.
+# The build installs dependencies and seeds 400 clearly labelled simulated cases, so the clinician console,
+# pathway board and programme dashboard have data for judges. On the free plan the disk resets on each
+# restart or deploy, which returns the demo to this clean, seeded state.
+services:
+  - type: web
+    name: riaya
+    runtime: python
+    plan: free
+    region: frankfurt
+    buildCommand: pip install -r requirements.txt && python validation/run_validation.py --seed-demo
+    startCommand: uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.14"
+      # Demo login shown to judges (clinician / demo-clinician). Set your own for anything real.
+      - key: RIAYA_CLINICIAN_PASSWORD
+        value: demo-clinician
