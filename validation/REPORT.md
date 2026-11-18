@@ -1,6 +1,6 @@
 # Validation report
 
-Generated 2026-11-04 12:32. Re-run with `python validation/run_validation.py`.
+Generated 2026-11-18 15:26. Re-run with `python validation/run_validation.py`.
 
 ## 1. Triage safety on clinical vignettes
 
@@ -63,11 +63,11 @@ Calibration by decile:
 
 | Predicted | Observed | n |
 |---|---|---|
-| 0.178 | 0.158 | 500 |
-| 0.209 | 0.166 | 500 |
+| 0.178 | 0.152 | 500 |
+| 0.209 | 0.172 | 500 |
 | 0.225 | 0.174 | 500 |
-| 0.246 | 0.228 | 500 |
-| 0.265 | 0.286 | 500 |
+| 0.246 | 0.23 | 500 |
+| 0.265 | 0.284 | 500 |
 | 0.285 | 0.294 | 500 |
 | 0.31 | 0.31 | 500 |
 | 0.337 | 0.372 | 500 |

@@ -38,6 +38,33 @@ CREATE TABLE IF NOT EXISTS partner_links (
   token_hash TEXT PRIMARY KEY, assessment_id TEXT NOT NULL, created_at REAL NOT NULL, expires_at REAL NOT NULL, revoked INTEGER DEFAULT 0, views INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS feedback (
   assessment_id TEXT PRIMARY KEY, trust INTEGER, clarity INTEGER, comfort INTEGER, ts REAL);
+CREATE TABLE IF NOT EXISTS lab_results (
+  id TEXT PRIMARY KEY, user_id TEXT NOT NULL, assessment_id TEXT, field TEXT NOT NULL, value REAL NOT NULL,
+  extracted_value REAL, collected_on TEXT, created_at REAL NOT NULL, detail BLOB,
+  review_status TEXT DEFAULT 'pending', review_note BLOB, reviewed_by TEXT, reviewed_at REAL, original_value REAL);
+CREATE TABLE IF NOT EXISTS plans (
+  id TEXT PRIMARY KEY, user_id TEXT NOT NULL, assessment_id TEXT NOT NULL, status TEXT NOT NULL,
+  created_at REAL NOT NULL, start_at REAL, items BLOB NOT NULL, checkins BLOB, reminders INTEGER DEFAULT 0,
+  doctor_note BLOB, reviewed_at REAL, reviewer TEXT, stopped_at REAL);
+CREATE TABLE IF NOT EXISTS providers (
+  id TEXT PRIMARY KEY, name_en TEXT NOT NULL, name_ar TEXT NOT NULL, area TEXT NOT NULL, area_ar TEXT NOT NULL,
+  sector TEXT NOT NULL, kinds TEXT NOT NULL, website TEXT NOT NULL, active INTEGER DEFAULT 1,
+  confirmed_at REAL, confirmed_by TEXT, confirm_note TEXT);
+CREATE TABLE IF NOT EXISTS appointments (
+  id TEXT PRIMARY KEY, assessment_id TEXT NOT NULL, provider_id TEXT NOT NULL, status TEXT NOT NULL,
+  created_at REAL NOT NULL, updated_at REAL NOT NULL, prefs BLOB, slot_at REAL, place_note TEXT, reason TEXT,
+  share_code TEXT, decided_by TEXT, simulated INTEGER DEFAULT 0);
+CREATE TABLE IF NOT EXISTS recovery (
+  user_id TEXT PRIMARY KEY, code_hash TEXT UNIQUE NOT NULL, created_at REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS wa_sessions (
+  key TEXT PRIMARY KEY, state BLOB, updated_at REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS sharing (
+  user_id TEXT PRIMARY KEY, prefs BLOB NOT NULL, updated_at REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS consent_receipts (
+  id TEXT PRIMARY KEY, user_id TEXT NOT NULL, ts REAL NOT NULL, recipient TEXT NOT NULL, action TEXT NOT NULL, scope TEXT);
+CREATE TABLE IF NOT EXISTS consultations (
+  id TEXT PRIMARY KEY, assessment_id TEXT NOT NULL, clinician TEXT NOT NULL, created_at REAL NOT NULL,
+  outcome BLOB NOT NULL, followup_at REAL, followup_done_at REAL);
 """
 
 
@@ -61,8 +88,11 @@ def tx():
 
 
 MIGRATIONS = {
-    "assessments": [("labs", "BLOB")],
-    "referrals": [("rapid", "INTEGER DEFAULT 0"), ("due_at", "REAL"), ("video_url", "TEXT"), ("handover_at", "REAL")],
+    "assessments": [("labs", "BLOB"), ("channel", "TEXT DEFAULT 'web'")],
+    "referrals": [("rapid", "INTEGER DEFAULT 0"), ("due_at", "REAL"), ("video_url", "TEXT"), ("handover_at", "REAL"),
+                  ("tests_done_at", "REAL"), ("followup_at", "REAL"), ("barrier", "TEXT"), ("self_reported", "INTEGER DEFAULT 0")],
+    "messages": [("audio", "BLOB"), ("mime", "TEXT"), ("seconds", "REAL")],
+    "sessions": [("last_seen", "REAL")],
 }
 
 

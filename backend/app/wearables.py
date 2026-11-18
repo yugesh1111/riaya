@@ -105,10 +105,18 @@ def summarise_apple(recs):
     if steps:
         out["steps_avg"] = round(statistics.mean(steps.values()))
 
+    daily = {"sleep_h": dict(nights), "steps": dict(steps)}
     for kind, key in (("hrv", "hrv_sdnn_avg"), ("rhr", "resting_hr_avg")):
         vals = [float(v) for _, _, v, _ in recent.get(kind, [])]
         if vals:
             out[key] = round(statistics.mean(vals), 1)
+        per_day = defaultdict(list)
+        for s, _, v, _ in recent.get(kind, []):
+            per_day[s.date()].append(float(v))
+        daily["hrv_sdnn" if kind == "hrv" else "resting_hr"] = {d: statistics.mean(v) for d, v in per_day.items()}
+    base = personal_baseline(daily, latest.date())
+    if base:
+        out["personal_baseline"] = base
 
     low_nights = set()
     for s, _, v, _ in recent.get("spo2", []):
@@ -129,6 +137,22 @@ def summarise_apple(recs):
     alc = [float(v) for _, _, v, _ in recent.get("alcohol", [])]
     if alc:
         out["alcohol_drinks_per_week"] = round(sum(alc) / (WINDOW_DAYS / 7), 1)
+    return out
+
+
+def personal_baseline(daily, end, recent_days=7, unusual_pct=15):
+    """His last week against his own earlier weeks: a change matters more than a population cut-off."""
+    out = {}
+    for key, per_day in daily.items():
+        if not per_day:
+            continue
+        end = max(per_day)  # each signal's own last day, so a missing final night doesn't shift the window
+        recent = [v for d, v in per_day.items() if (end - d).days < recent_days]
+        before = [v for d, v in per_day.items() if (end - d).days >= recent_days]
+        if len(recent) >= 3 and len(before) >= 7:
+            r, b = statistics.mean(recent), statistics.mean(before)
+            pct = round(100 * (r - b) / b, 1) if b else 0.0
+            out[key] = {"recent": round(r, 2), "baseline": round(b, 2), "change_pct": pct, "unusual": abs(pct) >= unusual_pct}
     return out
 
 

@@ -323,12 +323,12 @@
   "calibration": [
    {
     "predicted": 0.178,
-    "observed": 0.158,
+    "observed": 0.152,
     "n": 500
    },
    {
     "predicted": 0.209,
-    "observed": 0.166,
+    "observed": 0.172,
     "n": 500
    },
    {
@@ -338,12 +338,12 @@
    },
    {
     "predicted": 0.246,
-    "observed": 0.228,
+    "observed": 0.23,
     "n": 500
    },
    {
     "predicted": 0.265,
-    "observed": 0.286,
+    "observed": 0.284,
     "n": 500
    },
    {
@@ -502,6 +502,7 @@
    "andrology": 54,
    "primary_care": 81,
    "fertility_services": 29
-  }
+  },
+  "seeded": 400
  }
 }
