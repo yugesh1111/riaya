@@ -107,6 +107,14 @@ def _date(text):
     return m.group(0) if m else None
 
 
+def _age(text):
+    """His age as printed on the report ("Age: 34 Y", "Age/Sex: 34Y/M", "العمر: 34"), if it is plausible."""
+    m = re.search(r"(?:\bage\b(?:\s*/\s*(?:sex|gender))?|العمر)\s*[:\-]?\s*(\d{2})\s*(?:y|yr|yrs|years?|سنة)?\b", text, re.I)
+    if m and 16 <= int(m.group(1)) <= 99:
+        return int(m.group(1))
+    return None
+
+
 def read(text, lang="en"):
     values, seen, context = [], set(), {}
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
@@ -151,5 +159,5 @@ def read(text, lang="en"):
     values.sort(key=lambda v: rank.index(v["field"]))
     kind = "semen" if any(v["target"] == "semen" and v["field"] != "abstinence_days" for v in values) else "blood"
     table = sum(1 for ln in lines if ("|" in ln or "\t" in ln)) >= 3
-    return {"values": values, "date": _date(text), "context": context, "table": table, "kind": kind,
+    return {"values": values, "date": _date(text), "age": _age(text), "context": context, "table": table, "kind": kind,
             "note": NOTE["ar" if lang == "ar" else "en"]}

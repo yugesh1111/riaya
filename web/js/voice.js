@@ -18,43 +18,84 @@
   }
   ["pointerdown", "keydown", "touchend"].forEach(ev => document.addEventListener(ev, unlockAudio, { once: true, capture: true }));
 
-  function voicesFor(lang) {
-    if (!root.speechSynthesis) return [];
-    return speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().replace("_", "-").startsWith(lang));
-  }
+  /* Accents he can choose. The locale steers both speech recognition and which voice reads to him. */
+  const ACCENTS = {
+    ar: [{ key: "ae", locale: "ar-AE", en: "Emirati", ar: "إماراتي" }, { key: "sa", locale: "ar-SA", en: "Saudi", ar: "سعودي" },
+         { key: "eg", locale: "ar-EG", en: "Egyptian", ar: "مصري" }, { key: "lv", locale: "ar-JO", en: "Levantine", ar: "شامي" }],
+    en: [{ key: "gb", locale: "en-GB", en: "British", ar: "بريطاني" }, { key: "us", locale: "en-US", en: "American", ar: "أمريكي" },
+         { key: "in", locale: "en-IN", en: "Indian", ar: "هندي" }],
+  };
+  const NATURAL = /natural|neural|online|premium|enhanced|siri|wavenet|studio/i;
+  const KNOWN_GOOD = /hamdan|fatima|hamed|zariyah|shakir|salma|taim|amany|majed|laila|tarik|mariam|sonia|ryan|libby|thomas|jenny|guy|aria|neerja|prabhat|daniel|serena|kate|jamie|google uk english|google us english/i;
+  const ROBOTIC = /espeak|compact|pico|bahh|bells|boing|bubbles|cellos|wobble|zarvox|trinoids|whisper|organ|jester|superstar|albert|fred|junior|ralph|kathy|grandma|grandpa|rocko|shelley|eddy|flo|reed|sandy|bad news|good news/i;
 
-  function speak(text, { lang, voiceName, onend } = {}) {
+  /* Every voice for this language, best first: the most natural-sounding voices (neural / premium / enhanced), then
+     the ones that match his accent, then the rest. Novelty and robotic voices are left out. */
+  function voicesFor(lang, locale) {
+    if (!root.speechSynthesis) return [];
+    const want = (locale || "").toLowerCase();
+    const score = v => {
+      const l = v.lang.toLowerCase().replace("_", "-");
+      return (NATURAL.test(v.name) ? 100 : 0) + (KNOWN_GOOD.test(v.name) ? 30 : 0) + (want && l === want ? 20 : 0) + (v.localService ? 0 : 5);
+    };
+    return speechSynthesis.getVoices()
+      .filter(v => v.lang.toLowerCase().replace("_", "-").startsWith(lang) && !ROBOTIC.test(v.name))
+      .map(v => ({ v, s: score(v) })).sort((a, b) => b.s - a.s).map(x => Object.assign(x.v, { _natural: x.s >= 100 }));
+  }
+  const isNatural = v => !!(v && NATURAL.test(v.name));
+
+  /* Speaks sentence by sentence with a short breath between them: sounds more like a person, and avoids the
+     cut-off some browsers apply to long utterances. onstart/onend let the page animate the voice orb. */
+  let speakToken = 0;
+  function speak(text, { lang, locale, voiceName, onend, onstart } = {}) {
     if (!root.speechSynthesis) { onend && onend(); return; }
     speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text.replace(/\n+/g, ". "));
-    u.lang = lang === "ar" ? "ar-AE" : "en-GB";
-    const v = voicesFor(lang).find(x => x.name === voiceName) || voicesFor(lang)[0];
-    if (v) u.voice = v;
-    u.rate = 0.97;
+    const token = ++speakToken;
+    const list = voicesFor(lang, locale);
+    const v = list.find(x => x.name === voiceName) || list[0];
+    const parts = String(text).replace(/\n+/g, " \n ").split(/(?<=[.!?؟\n])\s+/).map(x => x.trim()).filter(x => x && x !== "\n");
     let done = false;
     const finish = () => { if (!done) { done = true; onend && onend(); } };
-    u.onend = finish; u.onerror = finish;
     // some Android builds never fire onend: fall back on an estimate
-    setTimeout(finish, Math.min(30000, 2500 + text.length * (lang === "ar" ? 120 : 95)));
-    speechSynthesis.speak(u);
+    const guard = setTimeout(finish, Math.min(45000, 3000 + text.length * (lang === "ar" ? 120 : 95)));
+    const next = i => {
+      if (token !== speakToken) return;
+      if (i >= parts.length) { clearTimeout(guard); return finish(); }
+      const u = new SpeechSynthesisUtterance(parts[i]);
+      u.lang = (v && v.lang) || locale || (lang === "ar" ? "ar-AE" : "en-GB");
+      if (v) u.voice = v;
+      u.rate = isNatural(v) ? 1.0 : 0.95;
+      u.pitch = 1;
+      if (i === 0) u.onstart = () => onstart && onstart();
+      u.onend = () => setTimeout(() => next(i + 1), /[?؟]$/.test(parts[i]) ? 260 : 180);
+      u.onerror = () => next(i + 1);
+      speechSynthesis.speak(u);
+    };
+    next(0);
   }
+  function stopSpeaking() { speakToken++; if (root.speechSynthesis) speechSynthesis.cancel(); }
 
-  async function loadWhisper(onProgress) {
-    if (whisper) return whisper;
-    if (whisperLoading) return whisperLoading;
-    whisperLoading = (async () => {
+  /* size "base" (default, ~80 MB, fine for English and short answers) or "small" (~250 MB, much better for Arabic;
+     used by the demo and offered for private mode on a good connection). */
+  const SMALL = ["onnx-community/whisper-small", "Xenova/whisper-small"];
+  const models = {}, loading = {};
+  async function loadWhisper(onProgress, size = "base") {
+    if (models[size]) return models[size];
+    if (loading[size]) return loading[size];
+    loading[size] = (async () => {
       const { pipeline, env } = await import(TRANSFORMERS);
       env.allowLocalModels = false;
       let lastErr;
-      for (const id of MODELS) {
+      for (const id of size === "small" ? SMALL : MODELS) {
         try {
-          whisper = await pipeline("automatic-speech-recognition", id, { progress_callback: onProgress });
-          return whisper;
+          models[size] = await pipeline("automatic-speech-recognition", id, { progress_callback: onProgress });
+          if (size === "base") whisper = models[size];
+          return models[size];
         } catch (e) { lastErr = e; }
       }
       throw lastErr;
     })();
-    try { return await whisperLoading; } finally { whisperLoading = null; }
+    try { return await loading[size]; } finally { loading[size] = null; }
   }
 
   async function toMono16k(blob) {
@@ -113,10 +154,10 @@
 
   /* listen({lang, privateMode, onState, onPartial}) -> {stop, result: Promise<string[] alternatives>}
      onPartial(text) receives the words heard so far, so he can see that it is working. */
-  function listen({ lang, privateMode, onState = () => {}, onPartial = () => {} }) {
+  function listen({ lang, locale, privateMode, onState = () => {}, onPartial = () => {} }) {
     if (SR && !privateMode) {
       const rec = new SR();
-      rec.lang = lang === "ar" ? "ar-AE" : "en-US";
+      rec.lang = locale || (lang === "ar" ? "ar-AE" : "en-US");
       // keep listening through short pauses ("thirty... four"); iOS Safari handles continuous mode badly
       rec.continuous = !IOS; rec.interimResults = true; rec.maxAlternatives = 3;
       const finals = [];
@@ -173,5 +214,13 @@
 
   // errors that mean the browser's speech service itself is unusable here (blocked, offline, or no such language)
   const SERVICE_DOWN = /network|service-not-allowed|language-not-supported|not-supported|bad-grammar/i;
-  root.Voice = { speak, listen, record, voicesFor, hasBrowserASR: !!SR, canRecord, loadWhisper, SERVICE_DOWN };
+  /* Recognises a recorded clip on the phone with Whisper (used by the demo mode, which plays a recorded answer aloud
+     and lets the same on-device model that serves "private mode" understand it). */
+  async function transcribe(blob, lang, onProgress, size = "base") {
+    const [asr, audio] = await Promise.all([loadWhisper(onProgress, size), toMono16k(blob)]);
+    const out = await asr(audio, { language: lang === "ar" ? "arabic" : "english", task: "transcribe", chunk_length_s: 30 });
+    return String(out.text || "").trim();
+  }
+
+  root.Voice = { speak, stopSpeaking, listen, transcribe, record, voicesFor, isNatural, ACCENTS, hasBrowserASR: !!SR, canRecord, loadWhisper, SERVICE_DOWN };
 })(window);

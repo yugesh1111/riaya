@@ -194,7 +194,7 @@ async function openCase(id) {
     };
   });
   showVerdicts().catch(() => {});
-  const thread = ms => { $("#thread").innerHTML = ms.map(m => Notes.render(m, `/api/clinician/cases/${id}/voice-notes`, (m.sender === "user" ? "Patient" : "Clinician") + ", " + fmt(m.ts))).join("") || '<p class="muted">No messages yet.</p>'; Notes.wire($("#thread")); };
+  const thread = ms => { $("#thread").innerHTML = ms.map(m => Notes.render(m, `/api/clinician/cases/${id}/voice-notes`, (m.sender === "user" ? "Patient" : m.sender === "riaya" ? "Riaya (automatic)" : "Clinician") + ", " + fmt(m.ts))).join("") || '<p class="muted">No messages yet.</p>'; Notes.wire($("#thread")); };
   thread(c.messages || []);
   $("#csend").onclick = async () => { const v = $("#cmsg").value.trim(); if (!v) return; await API.post(`/api/clinician/cases/${id}/messages`, { body: v }); $("#cmsg").value = ""; thread(await API.get(`/api/clinician/cases/${id}/messages`)); };
   Notes.attach($("#cnote"), `/api/clinician/cases/${id}/voice-notes`, async () => thread(await API.get(`/api/clinician/cases/${id}/messages`)),
@@ -449,8 +449,18 @@ const WITHHELD = { answers: "questionnaire answers", devices: "watch and sensor 
 
 /* Coordinator board: where every man is on the pathway, and who has stalled long enough to need a gentle nudge. */
 async function pathwayBoard() {
-  const b = await API.get("/api/clinician/pathway");
+  const [b, loop] = await Promise.all([API.get("/api/clinician/pathway"), API.get("/api/clinician/referral-loop")]);
   const max = Math.max(1, ...b.stages.map(s => s.n));
+  const who = { coordinator: "Coordinator", clinical_lead: "Clinical lead" };
+  const loopCard = `<div class="card"><h2>Closed-loop referral tracking <span class="muted">(${loop.overdue.length} late)</span></h2>
+      <p class="muted small">Every referral has a deadline for each milestone that depends on its urgency. A late milestone escalates to the coordinator, then (at twice the limit) to the clinical lead.
+        The same state is published as a FHIR R4 Task, ready for Malaffi, NABIDH or Riayati. On time so far: <b>${loop.on_time_pct == null ? "—" : loop.on_time_pct + "%"}</b> of ${loop.milestones_done} milestones.</p>
+      <details class="small"><summary>Time limits by urgency</summary><table><tr><th>Level</th><th>Priority</th><th>Review</th><th>Appointment</th><th>Visit summary</th></tr>
+        ${Object.entries(loop.limits).map(([k, v]) => `<tr><td>${lvl(k)}</td><td>${esc(v.priority)}</td><td>${v.hours.review ?? "—"} h</td><td>${v.hours.appointment ?? "—"} h</td><td>${v.hours.outcome ?? "—"} h</td></tr>`).join("")}</table></details>
+      ${loop.overdue.length ? `<table><tr><th>Priority</th><th>Late milestone</th><th>Hours late</th><th>Escalated to</th><th>FHIR Task</th><th></th></tr>
+        ${loop.overdue.slice(0, 15).map(x => `<tr data-lid="${x.id}"><td><span class="tag">${esc(x.priority)}</span></td><td>${esc(x.milestone)} <span class="muted small">(limit ${x.limit_hours} h)</span></td>
+          <td>${x.hours_late}</td><td>${esc(who[x.escalate_to] || "")}</td><td class="small"><code>${esc(x.task_status)}</code></td>
+          <td>${x.simulated ? `<span class="tag">simulated</span> ` : ""}<button class="chip lo">Open case</button></td></tr>`).join("")}</table>` : `<p class="muted">Every referral is within its time limit.</p>`}</div>`;
   $("#tab").innerHTML = `<div class="card"><h2>Where men are on the pathway</h2><p class="muted small">Current stage of every referred man who consented to review or chose a clinic.</p>
       <div style="display:grid;grid-template-columns:200px 1fr 40px;gap:6px 12px;align-items:center" class="small">
       ${b.stages.map(s => `<span>${esc(s.label)}</span><div style="height:12px;background:var(--line);border-radius:6px;overflow:hidden"><div style="width:${100 * s.n / max}%;height:100%;background:var(--brand)"></div></div><b>${s.n}</b>`).join("")}</div></div>
@@ -471,7 +481,8 @@ async function pathwayBoard() {
         ${b.stalled.map(x => `<tr data-id="${x.id}" data-stage="${x.stage}"><td>${esc(x.reason)}${x.barrier ? `<br><span class="muted small">said: ${esc(MISSED_TEXT[x.barrier] || x.barrier)}</span>` : ""}</td>
           <td>${x.days}</td><td>${lvl(x.level)}</td><td class="small">${esc(x.cohort || "")}${x.simulated ? " <span class=\"tag\">simulated</span>" : ""}</td>
           <td><div class="row">${x.reminded ? `<span class="tag">reminded</span>` : ""}${x.can_nudge && !x.reminded ? `<button class="chip nd">Send nudge</button>` : ""}<button class="chip oc">Open case</button><span class="small msg"></span></div></td></tr>`).join("")}</table>`
-      : `<p class="muted">Nobody has stalled. Everyone is moving.</p>`}</div>`;
+      : `<p class="muted">Nobody has stalled. Everyone is moving.</p>`}</div>${loopCard}`;
+  $$("#tab tr[data-lid] .lo").forEach(bt => bt.onclick = async () => { $$(".tabs [data-t]").forEach(x => x.classList.toggle("on", x.dataset.t === "queue")); await queue(); openCase(bt.closest("tr").dataset.lid); });
   $("#remRun").onclick = async () => { const r = await API.post("/api/clinician/reminders/run"); $("#remMsg").textContent = `${r.sent} sent`; setTimeout(pathwayBoard, 800); };
   $$("#tab tr[data-id]").forEach(row => {
     const nd = row.querySelector(".nd");

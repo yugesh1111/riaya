@@ -144,12 +144,32 @@ def workflow(n=400, seed=11, seed_db=False):
     return out
 
 
+def seed_plan(c, security, aid, start, res, rng):
+    """A simulated 12-week companion: weekly check-ins that thin out over time, and WHO-5 at day 0 / 30 / 84.
+    Engagement decay and WHO-5 change are drawn to resemble published digital-health trials, and are labelled simulated."""
+    nodes = [p["node"] for p in (res.get("plan") or [])][:2] or ["sleep_loss"]
+    items = [{"node": n, "label_en": n, "label_ar": n, "action_en": "", "action_ar": "", "factor_en": n, "factor_ar": n, "measure": None} for n in nodes]
+    last_week = min(12, max(1, int(rng.expovariate(1 / 7)) + 1))
+    checkins = [{"week": w, "items": {n: {"adherence": max(0, min(3, int(round(rng.gauss(2.0 - w / 12, 0.8))))), "value": None} for n in nodes},
+                 "energy": None, "ts": start + w * 7 * 86400} for w in range(1, last_week + 1) if rng.random() < 0.85]
+    base = max(0, min(100, int(rng.gauss(52, 18)) // 4 * 4))
+    wb = [{"point": "day0", "score": base, "week": 1, "ts": start}]
+    if last_week >= 5:
+        wb.append({"point": "day30", "score": max(0, min(100, base + int(rng.gauss(6, 12)) // 4 * 4)), "week": 5, "ts": start + 30 * 86400})
+    if last_week >= 12:
+        wb.append({"point": "day84", "score": max(0, min(100, base + int(rng.gauss(9, 13)) // 4 * 4)), "week": 12, "ts": start + 84 * 86400})
+    c.execute("INSERT INTO plans (id,user_id,assessment_id,status,created_at,start_at,items,checkins,wellbeing) VALUES (?,?,?,?,?,?,?,?,?)",
+              (str(uuid.uuid4()), "simulated", aid, "completed" if last_week >= 12 else "active", start, start, security.seal(items),
+               security.seal(checkins), security.seal(wb)))
+
+
 def seed_database(rows, rng):
     from app import db, security
     db.init()
     n = 0
     with db.tx() as c:
         c.execute("DELETE FROM referrals WHERE simulated=1")
+        c.execute("DELETE FROM plans WHERE user_id='simulated'")
         c.execute("DELETE FROM assessments WHERE simulated=1")
         for a, started, completed, res in rows:
             aid = str(uuid.uuid4())
@@ -173,6 +193,8 @@ def seed_database(rows, rng):
                              VALUES (?,?,?,?,?,?,?,?,?,?,1)""",
                           (str(uuid.uuid4()), aid, t["level"], status, fin, reviewed_at, "clinician" if reviewed_at else None,
                            t["level"] if reviewed_at else None, booked, attended))
+            if res and fin and rng.random() < 0.45:
+                seed_plan(c, security, aid, fin, res, rng)
             n += 1
     return n
 

@@ -101,7 +101,36 @@ def build(c, include_simulated=False):
         "levels": count(lambda r: refs[r["id"]]["final_level"] if r["id"] in refs and refs[r["id"]]["final_level"] else r["level"]),
         "channels": count(lambda r: (r["channel"] or "web") if (r["channel"] or "web") != "sample" else "web"),
         "by_age": groups(0), "by_background": groups(1), "clinic_quality": visit.clinic_quality(c, K),
+        "outcomes": outcomes(c, include_simulated),
     }
+
+
+def outcomes(c, include_simulated=False):
+    """30+ day outcomes of the 12-week companion: engagement over time and WHO-5 change (k-anonymised).
+    WHO-5 change of 10 points or more is clinically meaningful (Topp 2015)."""
+    q = "SELECT * FROM plans WHERE status!='proposed'" + ("" if include_simulated else " AND user_id!='simulated'")
+    plans = c.execute(q).fetchall()
+    n = len(plans)
+    if n < K:
+        return {"n": n, "suppressed": True}
+    active_at = {4: 0, 8: 0, 12: 0}
+    changes, base_low = [], 0
+    for p in plans:
+        weeks = {x["week"] for x in (security.unseal(p["checkins"]) or [])}
+        for w in active_at:
+            if any(k >= w for k in weeks):
+                active_at[w] += 1
+        wb = {e["point"]: e["score"] for e in (security.unseal(p["wellbeing"]) or [])}
+        if "day0" in wb and ("day30" in wb or "day84" in wb):
+            changes.append(wb.get("day84", wb.get("day30")) - wb["day0"])
+            base_low += wb["day0"] <= 50
+    out = {"n": n, "retention": [{"week": w, "pct": _pct(v, n)} for w, v in active_at.items()]}
+    if len(changes) >= K:
+        out["who5"] = {"n": len(changes), "mean_change": round(statistics.mean(changes), 1),
+                       "improved_pct": _pct(sum(x >= 10 for x in changes), len(changes)),
+                       "worse_pct": _pct(sum(x <= -10 for x in changes), len(changes)),
+                       "low_at_start_pct": _pct(base_low, len(changes)), "meaningful_points": 10}
+    return out
 
 
 def _count(it):

@@ -164,7 +164,7 @@ function passiveStart() {
       const r = await API.post(`/api/assessments/${S.aid}/passive?lang=${LANG}`);
       $("#ps").textContent = "";
       const stats = Object.entries(r.summary).map(([k, v]) => `<div style="min-width:130px"><div style="font-family:var(--display);font-size:30px">${v}</div><div class="muted small">${t("pwStat")[k] || k}</div></div>`).join("");
-      $("#pres").innerHTML = `<div class="card"><div class="row" style="gap:28px;align-items:flex-start">${stats}</div></div>
+      $("#pres").innerHTML = `<div class="card"><div class="row" style="gap:28px;align-items:flex-start">${stats}</div></div><div id="watchHost"></div>
         <h2 style="margin-top:28px">${t("pwFound")}</h2>
         ${r.findings.length ? r.findings.map(f => `<div class="plan-item"><b>${esc(f.text)}</b>
           <div class="why">${f.evidence ? gradeTag(f.evidence) + " " : ""}${f.sources.map(esc).join(LANG === "ar" ? "؛ " : "; ")}</div></div>`).join("") : `<p>${t("pwNone")}</p>`}
@@ -172,6 +172,7 @@ function passiveStart() {
           <div class="row"><a class="btn" style="background:#eef0ec;color:#0f2a3a" href="chat.html">${t("pwTalk")}</a>
           <button class="btn ghost" style="color:#eef0ec;box-shadow:inset 0 0 0 1px #3b5361" id="pform">${t("pwForm")}</button></div></div>`;
       $("#pform").onclick = () => { S.section = 0; intake(); };
+      if (window.WatchPreview) WatchPreview.mount($("#watchHost"), r);
     } catch (e) { $("#ps").textContent = `${t("uploadErr")}: ${e.message}`; }
   };
   $("#pf").onchange = e => e.target.files[0] && run(e.target.files[0]);
@@ -316,6 +317,7 @@ function tests() {
   view().innerHTML = `<h1>${t("testTitle")}</h1><p class="muted">${t("testSub")}</p>
     <div class="card next"><h2>${t("lrTitle")}</h2><p class="small">${t("lrSub")}</p>
       <div class="row"><label class="btn" style="background:#eef0ec;color:#0f2a3a" for="lrf">${t("lrPick")}</label><input type="file" id="lrf" accept=".pdf,.txt,image/*" class="hidden">
+      <button class="btn" style="background:#eef0ec;color:#0f2a3a" id="lrScan">📷 ${LANG === "ar" ? "امسح الصفحات" : "Scan pages"}</button>
       <button class="btn ghost" style="color:#eef0ec;box-shadow:inset 0 0 0 1px #3b5361" id="lrs">${t("lrSample")}</button></div><div id="lrout" class="small"></div></div>
     <div class="card">
       <div class="opts" id="kind">
@@ -361,6 +363,7 @@ function tests() {
         <td><input type="number" step="0.01" data-f="${v.field}" data-t="${v.target}" data-x="${v.value}" value="${v.value}" style="width:96px;padding:6px 8px"> ${v.unit}
           ${v.ref ? `<br><span style="color:#a9bac4;font-size:12px">${lx("range")}: ${esc(v.reference)}</span>` : ""}</td>
         <td style="color:#a9bac4;font-size:12px" dir="ltr">${esc(v.line)}</td></tr>`).join("")}</table>
+      ${r.age ? `<p class="small" style="margin-top:10px">${LANG === "ar" ? "العمر في التقرير" : "Age on the report"}: <input type="number" id="lrAge" min="16" max="99" value="${r.age}" style="width:70px;padding:4px 6px"></p>` : ""}
       <h3 style="margin-top:14px">${lx("ctxT")}</h3>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
         <label class="small">${lx("abst")}<input type="number" id="lrAb" min="0" max="60" value="${r.context.abstinence_days ?? ""}"></label>
@@ -381,7 +384,8 @@ function tests() {
       const ab = $("#lrAb").value;
       if (values.length) await API.post("/api/me/labs", { assessment_id: S.aid, collected_on: r.date || null, lab_name: $("#lrLab").value || null, source: "report",
         abstinence_days: ab === "" ? null : Number(ab), time: $("#lrTm").value || null, fasting: $("#lrFa").checked ? true : (r.context.fasting === false ? false : null),
-        fever_recent: $("#lrFv").checked || null, values });
+        fever_recent: $("#lrFv").checked || null, age: $("#lrAge") && $("#lrAge").value ? Number($("#lrAge").value) : null, values });
+      if (r._doc && r.date && window.Scan) Scan.setDate(r._doc, r.date).catch(() => {});
       $("#lrout").innerHTML = `<p>✓ ${t("lrSaved")} ${lx("saveTl")}</p><p><button class="btn ghost" style="color:inherit" id="lrTl">${lx("openLabs")}</button></p>`;
       $("#lrTl").onclick = () => renderLabs();
     };
@@ -400,6 +404,14 @@ function tests() {
     } catch (e) { $("#lrout").textContent = e.message; }
   };
   $("#lrf").onchange = e => e.target.files[0] && readReport(e.target.files[0]);
+  $("#lrScan").onclick = () => Scan.open(async (text, docId) => {
+    $("#lrout").textContent = t("lrReading");
+    try {
+      const f = new FormData(); f.append("text", text);
+      const r = await API.req("POST", `/api/assessments/${S.aid}/lab-report`, f, true);
+      r._doc = docId; showReport(r);
+    } catch (e) { $("#lrout").textContent = e.message; }
+  });
   $("#lrs").onclick = async () => readReport(new File([await (await fetch("samples/sample_lab_report.pdf")).blob()], "report.pdf", { type: "application/pdf" }));
   $("#saveL").onclick = async () => {
     const n = id => $(id).value === "" ? null : Number($(id).value);
@@ -527,7 +539,7 @@ function renderResult() {
   const loadMsgs = async () => {
     if (!$("#msgs")) return;
     const ms = await API.get(`/api/assessments/${S.aid}/messages`);
-    $("#msgs").innerHTML = ms.map(m => Notes.render(m, `/api/assessments/${S.aid}/voice-notes`, m.sender === "user" ? t("you") : t("doctor"))).join("") || `<p class="muted">—</p>`;
+    $("#msgs").innerHTML = ms.map(m => Notes.render(m, `/api/assessments/${S.aid}/voice-notes`, m.sender === "user" ? t("you") : m.sender === "riaya" ? "Riaya" : t("doctor"))).join("") || `<p class="muted">—</p>`;
     Notes.wire($("#msgs"));
   };
   loadMsgs();
@@ -778,14 +790,16 @@ async function renderCare(aid) {
   else if (s.stage === "not_needed" || s.stage === "no_referral") body = `<div class="card"><p>${cc("notNeeded")}</p></div>`;
   else if (s.stage === "requested") body = `<div class="card"><p>${esc(cc("requested")(a.provider.name))}</p>
       ${a.share_code ? `<p class="small">${cc("code")}</p><div class="code" dir="ltr">${esc(a.share_code)}</div>${window.cp ? `<p class="small muted">${cp("clinicHow")(location.origin + "/clinic.html")}</p>` : ""}` : ""}
-      <p><button class="btn ghost" id="ccCancel">${cc("cancel")}</button></p></div><div id="prep"></div>`;
+      ${Reach.clinicBar(a.provider, a.share_code)}
+      <p><button class="btn ghost" id="ccCancel">${cc("cancel")}</button></p></div>${Reach.myDoctor(a.share_code)}<div id="prep"></div>`;
   else if (s.stage === "confirmed") body = `<div class="card" style="border-inline-start:4px solid var(--saffron)"><h2>${cc("confirmedT")}</h2>
       <p style="font-size:1.15em"><b>${esc(dt(a.slot_at))}</b></p><p>${esc(a.provider.name)}${a.place_note ? `<br><span class="muted">${esc(a.place_note)}</span>` : ""}</p>
       ${a.share_code ? `<p class="small">${cc("code")}: <span class="code" dir="ltr">${esc(a.share_code)}</span></p>${window.cp ? `<p class="small muted">${cp("clinicHow")(location.origin + "/clinic.html")}</p>` : ""}` : ""}
       <p class="row"><button class="btn" id="ccCal">${cc("cal")}</button><span class="muted small">${cc("calNote")}</span></p>
+      ${Reach.clinicBar(a.provider, a.share_code)}
       <div class="row" id="ccOut"><button class="chip" data-o="attended">${cc("went")}</button><button class="chip" data-o="missed">${cc("missed")}</button>
-      <button class="chip" id="ccCancel">${cc("cancelAppt")}</button></div></div><div id="prep"></div>`;
-  else if (s.stage === "attended") body = `<div class="card"><p>${cc("attended")}</p><p class="muted small">${esc(a.provider.name)}</p></div>${window.consultHTML ? consultHTML(s.consultation, aid) : ""}<div id="vfb"></div>`;
+      <button class="chip" id="ccCancel">${cc("cancelAppt")}</button></div></div>${Reach.myDoctor(a.share_code)}<div id="prep"></div>`;
+  else if (s.stage === "attended") body = `<div class="card"><p>${cc("attended")}</p><p class="muted small">${esc(a.provider.name)}</p>${Reach.clinicBar(a.provider, null)}</div>${window.consultHTML ? consultHTML(s.consultation, aid) : ""}<div id="vfb"></div>`;
   else {
     const chip = (g, v) => `<span class="opt" data-g="${g}" data-v="${v}">${cc(v)}</span>`;
     body = `<h2>${cc("pick")}</h2><p class="muted small">${cc("pickSub")}</p>
@@ -793,7 +807,7 @@ async function renderCare(aid) {
         <input type="radio" name="prov" value="${esc(p.id)}" style="margin-top:6px"><div><b>${esc(p.name)}</b>
         <div class="small">${esc(p.area)} · ${cc(p.sector)}</div>
         <div class="small ${p.confirmed_at ? "" : "muted"}">${p.confirmed_at ? esc(cc("confirmed")(d(p.confirmed_at))) + (p.confirm_note ? ` — ${esc(p.confirm_note)}` : "") : cc("listed")}</div>
-        <a class="small" href="${esc(p.website)}" target="_blank" rel="noopener noreferrer">${cc("site")}</a></div></label>`).join("")}</div>
+        <a class="small" href="${esc(p.website)}" target="_blank" rel="noopener noreferrer">${cc("site")}</a>${p.phone ? ` · <a class="small" href="tel:${esc(p.phone.replace(/[^\d+]/g, ""))}" dir="ltr">✆ ${esc(p.phone)}</a>` : ""}</div></label>`).join("")}</div>
       <div class="card"><h3>${cc("when")}</h3><div class="opts">${["morning", "afternoon", "evening"].map(v => chip("times", v)).join("")}</div>
         <div class="opts" style="margin-top:8px">${["weekday", "weekend"].map(v => chip("days", v)).join("")}</div>
         <h3>${cc("how")}</h3><div class="opts"><span class="opt on" data-c="messages">${cc("inApp")}</span><span class="opt" data-c="phone">${cc("phone")}</span></div>
@@ -804,6 +818,7 @@ async function renderCare(aid) {
   }
   view().innerHTML = `<h1>${cc("title")}</h1>${body}${back}`;
   $("#ccBack").onclick = () => renderJourney();
+  if (a && a.provider) Reach.wire(view(), a.provider, a.share_code, () => renderCare(aid));
   if (window.wireConsult) wireConsult(view(), () => renderCare(aid));
   if (window.loadPrep) loadPrep(aid).catch(() => {});
   if (window.loadVisitFeedback) loadVisitFeedback(aid).catch(() => {});
@@ -881,20 +896,26 @@ function labChart(s) {
   const pts = s.points.filter(p => p.review_status !== "rejected");
   if (pts.length < 2) return "";
   const W = 320, H = 132, L = 36, R = 12, T = 12, B = 26;
-  const vals = pts.map(p => p.value), ref = (s.latest && s.latest.ref) || {};
+  const fc = s.forecast && s.forecast.projected != null ? s.forecast : null;
+  const vals = pts.map(p => p.value).concat(fc ? [fc.low, fc.high] : []), ref = (s.latest && s.latest.ref) || {};
   const bounds = [ref.low, ref.high].filter(v => v != null);
   const lo = Math.min(...vals, ...bounds), hi = Math.max(...vals, ...bounds);
   const pad = (hi - lo || Math.abs(hi) || 1) * 0.18, y0 = Math.max(0, lo - pad), y1 = hi + pad;
-  const x = i => pts.length === 1 ? (L + W - R) / 2 : L + i * (W - L - R) / (pts.length - 1);
+  const slots = pts.length - 1 + (fc ? 1 : 0);
+  const x = i => pts.length === 1 ? (L + W - R) / 2 : L + i * (W - L - R) / slots;
   const y = v => T + (H - T - B) * (1 - (v - y0) / (y1 - y0));
   const band = (ref.low != null || ref.high != null) ? `<rect x="${L}" y="${y(ref.high ?? y1)}" width="${W - L - R}" height="${Math.max(0, y(ref.low ?? y0) - y(ref.high ?? y1))}" fill="var(--good)" opacity=".12"/>` : "";
   const line = pts.length > 1 ? `<polyline points="${pts.map((p, i) => `${x(i)},${y(p.value)}`).join(" ")}" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linejoin="round"/>` : "";
   const dots = pts.map((p, i) => `<circle cx="${x(i)}" cy="${y(p.value)}" r="5" fill="var(--brand)" stroke="var(--surface)" stroke-width="2"><title>${esc(fmtD(p.date))}: ${p.value} ${esc(s.unit)} (${esc(lx("st")[p.status])})</title></circle>`).join("");
-  const ticks = pts.map((p, i) => `<text x="${x(i)}" y="${H - 8}" font-size="10" text-anchor="${i === 0 ? "start" : i === pts.length - 1 ? "end" : "middle"}" fill="var(--muted)">${esc(new Date(p.date + "T00:00:00").toLocaleDateString(LANG === "ar" ? "ar-AE" : "en-GB", { month: "short", year: "2-digit" }))}</text>`).join("");
-  const limits = bounds.map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--good)" stroke-dasharray="4 3"/><text x="${W - R}" y="${y(v) - 4}" font-size="10" text-anchor="end" fill="var(--muted)">${LANG === "ar" ? "حد المختبر" : "lab limit"} ${v}</text>`).join("");
+  const ticks = pts.map((p, i) => `<text x="${x(i)}" y="${H - 8}" font-size="10" text-anchor="${i === 0 ? "start" : i === pts.length - 1 && !fc ? "end" : "middle"}" fill="var(--muted)">${esc(new Date(p.date + "T00:00:00").toLocaleDateString(LANG === "ar" ? "ar-AE" : "en-GB", { month: "short", year: "2-digit" }))}</text>`).join("");
+  const limits = bounds.map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--good)" stroke-dasharray="4 3"/><text x="${L + 4}" y="${y(v) - 4}" font-size="10" text-anchor="start" fill="var(--muted)">${LANG === "ar" ? "حد المختبر" : "lab limit"} ${v}</text>`).join("");
+  const proj = fc ? `<line x1="${x(pts.length - 1)}" y1="${y(pts[pts.length - 1].value)}" x2="${x(pts.length)}" y2="${y(fc.projected)}" stroke="var(--brand)" stroke-width="2" stroke-dasharray="5 4" opacity=".8"/>
+    <line x1="${x(pts.length)}" x2="${x(pts.length)}" y1="${y(fc.high)}" y2="${y(fc.low)}" stroke="var(--brand)" stroke-width="6" stroke-linecap="round" opacity=".18"/>
+    <circle cx="${x(pts.length)}" cy="${y(fc.projected)}" r="5" fill="var(--surface)" stroke="var(--brand)" stroke-width="2"><title>${esc(fc.text)}</title></circle>
+    <text x="${x(pts.length)}" y="${H - 8}" font-size="10" text-anchor="end" fill="var(--muted)">${LANG === "ar" ? "متوقع" : "projected"}</text>` : "";
   const axis = [y0, y1].map(v => `<text x="${L - 6}" y="${y(v) + 3}" font-size="10" text-anchor="end" fill="var(--muted)">${+v.toFixed(1)}</text>`).join("");
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${esc(s.name)}: ${pts.map(p => `${fmtD(p.date)} ${p.value}`).join(", ")}" style="max-width:420px;display:block" dir="ltr">
-    ${band}${limits}<line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" stroke="var(--line)"/>${axis}${line}${dots}${ticks}</svg>`;
+    ${band}${limits}<line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" stroke="var(--line)"/>${axis}${line}${proj}${dots}${ticks}</svg>`;
 }
 
 async function renderLabs() {
@@ -910,6 +931,7 @@ async function renderLabs() {
         <p class="muted small" style="margin:0">${refTxt}</p>` : ""}
       ${s.change ? `<p class="small">${esc(lx("dir")[s.change.direction])} (${s.change.diff > 0 ? "+" : ""}${s.change.diff} ${esc(s.unit)} ${esc(lx("since")(fmtD(s.change.since)))})</p>` : ""}
       ${labChart(s)}
+      ${s.forecast && s.forecast.text ? `<p class="small lab-fc"><span aria-hidden="true">↗</span> ${esc(s.forecast.text)}</p><p class="small muted" style="margin-top:0">${esc(s.forecast.caveat)}</p>` : ""}
       ${l && l.notes.length ? `<ul class="small">${l.notes.map(n => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}
       ${s.advice.length ? `<p class="small"><b>${s.advice.map(esc).join("<br>")}</b></p>` : ""}
       <details><summary class="small">${lx("table")}</summary><table class="small"><tr><th>${lx("date")}</th><th>${lx("value")}</th><th>${lx("status")}</th><th></th></tr>
@@ -917,11 +939,26 @@ async function renderLabs() {
           <td>${p.value} ${esc(s.unit)}</td><td>${esc(lx("st")[p.status])}<br><span class="muted">${esc(lx("rev")[p.review_status])}${p.review_note ? `: ${esc(p.review_note)}` : ""}</span></td>
           <td><button class="chip" data-del="${p.id}">${lx("del")}</button></td></tr>`).join("")}</table></details></div>`;
   };
+  const db = tl.dashboard || {};
+  const ar = LANG === "ar";
+  const tiles = tl.series.length ? `<div class="lab-dash">
+      <div><b>${db.results}</b><span>${ar ? "نتائج محفوظة" : "results saved"}</span></div>
+      <div><b>${db.in_range}<small>/${db.tests}</small></b><span>${ar ? "ضمن معدل المختبر الآن" : "in the lab's range now"}</span></div>
+      <div><b>${db.trending}</b><span>${ar ? "تتجه بوضوح" : "clearly moving"}</span></div>
+      <div><b>${db.next_test_due_now ? (ar ? "الآن" : "Now") : db.next_test ? esc(fmtD(db.next_test)) : "—"}</b><span>${ar ? "موعد الفحص القادم" : "next test due"}</span></div></div>
+    ${(db.alerts || []).length ? `<div class="card lab-alerts">${db.alerts.map(a => `<p class="small"><b>${esc(a.name)}</b>: ${esc(
+      (a.already ? { below: ar ? "قد تكون الآن تحت الحد" : "may already be below the limit", above: ar ? "قد تكون الآن فوق الحد" : "may already be above the limit", into: ar ? "قد تكون عادت إلى المعدل" : "may already be back in range" }
+        : { below: ar ? "قد تنخفض تحت الحد" : "may fall below the limit", above: ar ? "قد ترتفع فوق الحد" : "may rise above the limit", into: ar ? "قد تعود إلى المعدل" : "may return to range" })[a.kind])}${a.already ? "" : ` ${ar ? "نحو" : "around"} ${esc(fmtD(a.date))}`}</p>`).join("")}
+      <p class="small muted">${ar ? "تنبيهات من اتجاه نتائجك؛ ناقشها مع طبيبك." : "Early signals from the trend in your own results; talk them through with your doctor."}</p></div>` : ""}` : "";
   view().innerHTML = `<h1>${lx("labsT")}</h1><p class="lead">${lx("labsSub")}</p>
+    ${db.age ? `<p class="small muted">${ar ? "العمر في آخر تقرير" : "Age on your latest report"}: ${db.age}</p>` : ""}
+    ${tiles}
     ${tl.pending_review ? `<p class="small muted">${esc(lx("pendingN")(tl.pending_review))}</p>` : ""}
     ${tl.series.length ? tl.series.map(card).join("") : `<div class="card"><p>${lx("labsNone")}</p></div>`}
+    <div id="scanDocs"></div>
     <p class="muted small">${esc(tl.note)}</p><p><button class="btn ghost" id="lxBack">${t("jOpen")}</button></p>`;
   $("#lxBack").onclick = () => renderJourney();
+  if (window.Scan) Scan.docsCard($("#scanDocs")).catch(() => {});
   $$("[data-del]").forEach(b => b.onclick = async () => { await API.del(`/api/me/labs/${b.dataset.del}`); renderLabs(); });
 }
 
@@ -973,13 +1010,15 @@ async function renderPlan() {
   view().innerHTML = `${head}<p class="lead">${done ? lx("done") : esc(lx("week")(plan.week, plan.weeks))}</p>
     ${done ? `<p><button class="btn" id="pnRecheck">${lx("recheck")}</button></p>` : ""}
     ${plan.doctor_note ? `<div class="card"><h3>${lx("doctorSays")}</h3><p>${esc(plan.doctor_note)}</p></div>` : ""}
+    ${WB.cards(plan)}
     ${form}
-    <div class="card"><h2>${lx("trend")}</h2>${plan.items.map(i => `<h3>${esc(i.label)}</h3>
+    <div class="card"><h2>${lx("trend")}</h2>${plan.items.map(i => `<h3>${esc(i.label)}</h3>${WB.tags(i)}
       <p class="small muted">${esc(lx("logged")(i.summary.weeks_logged))}${i.measure && i.summary.first != null ? `. ${esc(i.measure.label)}: ${lx("first")} ${i.summary.first}, ${lx("now")} ${i.summary.latest}` : ""}</p>
       ${i.summary.weeks_logged ? weekBars(i) : `<p class="small muted">${lx("noTrend")}</p>`}`).join("")}</div>
     ${done ? "" : `<div class="card"><h3>${lx("remind")}</h3><p class="small muted">${lx("remindSub")}</p><p class="row"><button class="btn ghost" id="pnCal">${lx("remindB")}</button>
-      <button class="chip" id="pnStop">${lx("stop")}</button></p></div>`}${back}`;
+      <button class="chip" id="pnStop">${lx("stop")}</button></p></div>`}${done ? "" : WB.ramadanSetting(plan)}${back}`;
   $("#pnBack").onclick = () => renderJourney();
+  WB.wire(plan, renderPlan);
   $$(".pn-item .opt").forEach(o => o.onclick = () => { o.parentElement.querySelectorAll(".opt").forEach(x => x.classList.toggle("on", x === o)); });
   $$("#pnEnergy .opt").forEach(o => o.onclick = () => $$("#pnEnergy .opt").forEach(x => x.classList.toggle("on", x === o)));
   if ($("#pnSave")) $("#pnSave").onclick = async () => {

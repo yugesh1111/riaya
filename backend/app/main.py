@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import (prescribe, visit, assessment, care, companion, conversation, db, explain, fabric, guide, handover, ifhas, insights, labreport,
-               labs, labtimeline, pathway, questionnaire, security, semen, sharing, wearables)
+               labs, labtimeline, pathway, questionnaire, referral_loop, security, semen, sharing, wearables, wellbeing)
 from .knowledge import graph
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -43,6 +43,7 @@ def startup():
         care.seed(c)
     purge_expired()
     run_reminders()
+    run_jitai()
 
 
 @asynccontextmanager
@@ -90,6 +91,7 @@ def _touch(user_id):
         _last_purge[0] = now
         purge_expired()
         run_reminders()
+        run_jitai()
 
 
 def purge_expired():
@@ -569,6 +571,7 @@ class LabSaveIn(BaseModel):
     time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
     fasting: Optional[bool] = None
     fever_recent: Optional[bool] = None
+    age: Optional[int] = Field(None, ge=16, le=99)
     values: list[LabValue] = Field(min_length=1, max_length=20)
 
 
@@ -578,7 +581,7 @@ def save_labs(body: LabSaveIn, user=Depends(current_user)):
     if body.assessment_id:
         own_assessment(body.assessment_id, user)
     ctx = {k: v for k, v in {"abstinence_days": body.abstinence_days, "time": body.time, "fasting": body.fasting,
-                             "fever_recent": body.fever_recent}.items() if v is not None}
+                             "fever_recent": body.fever_recent, "age": body.age}.items() if v is not None}
     ids, now = [], time.time()
     collected = body.collected_on or time.strftime("%Y-%m-%d")
     with db.tx() as c:
@@ -612,8 +615,9 @@ def my_labs(lang: str = "en", user=Depends(current_user)):
     L = lang_of(lang)
     with db.tx() as c:
         pts = _lab_points(c, "user_id=?", (user,), L)
-    return {"series": labtimeline.series(pts, L), "pending_review": sum(p["review_status"] == "pending" for p in pts),
-            "note": labtimeline.TXT[L]["note"]}
+    series = labtimeline.series(pts, L)
+    return {"series": series, "pending_review": sum(p["review_status"] == "pending" for p in pts),
+            "dashboard": labtimeline.dashboard(series, L), "note": labtimeline.TXT[L]["note"]}
 
 
 @app.delete("/api/me/labs/{rid}")
@@ -640,8 +644,33 @@ class PlanIn(BaseModel):
     nodes: list[str] = Field(min_length=1, max_length=3)
 
 
+def _ramadan_setting(c, user):
+    u = c.execute("SELECT ramadan FROM users WHERE id=?", (user,)).fetchone()
+    return (u["ramadan"] if u and u["ramadan"] else "auto")
+
+
 def _plan_view(r, lang):
-    return companion.view(r, security.unseal(r["items"]), security.unseal(r["checkins"]) or [], lang_of(lang), security.unseal(r["doctor_note"]))
+    """The 12-week companion, with its behaviour-change techniques, WHO-5 outcomes, relapse support and Ramadan timing."""
+    L = lang_of(lang)
+    v = companion.view(r, security.unseal(r["items"]), security.unseal(r["checkins"]) or [], L, security.unseal(r["doctor_note"]))
+    with db.tx() as c:
+        setting = _ramadan_setting(c, r["user_id"])
+    ram = wellbeing.ramadan_view(setting, L)
+    for it in v["items"]:
+        it["techniques"] = wellbeing.techniques_for(it["node"], L)
+        if ram["active"]:
+            it["ramadan"] = wellbeing.ramadan_goal(it["node"], L)
+    entries = security.unseal(r["wellbeing"]) or []
+    restart = security.unseal(r["restart"])
+    v["restart"] = ({"barrier": restart["barrier_label_" + L], "if_then": restart["if_then_" + L], "kept": restart["kept"], "at": restart["at"]}
+                    if restart else None)
+    v["who5"] = {"entries": [{"point": e["point"], "score": e["score"], "week": e["week"]} for e in entries],
+                 "due": wellbeing.who5_due(v["week"], entries) if v["status"] in ("active", "self_guided") else None,
+                 "change": wellbeing.who5_change(entries), "latest_band": wellbeing.who5_band(entries[-1]["score"], L) if entries else None,
+                 "meaningful_points": wellbeing.MEANINGFUL}
+    v["lapse"] = None if restart and restart["at"] > time.time() - 14 * 86400 else wellbeing.lapse(v)
+    v["ramadan"] = ram
+    return v
 
 
 @app.post("/api/assessments/{aid}/plan")
@@ -734,6 +763,185 @@ def reminders_ics(user=Depends(current_user)):
         raise HTTPException(404, "No running plan")
     return Response(companion.reminders_ics(r["id"], r["start_at"]), media_type="text/calendar",
                     headers={"Content-Disposition": "attachment; filename=weekly-check-in.ics"})
+
+
+# ------------------------------------------------------------------ wellbeing outcomes, relapse recovery, Ramadan, behaviour-change design
+SUPPORT_LINE = {"en": "UAE national mental-health support line: 800 4673 (800HOPE)", "ar": "خط الدعم النفسي الوطني في الإمارات: 800 4673 (800HOPE)"}
+
+
+@app.get("/api/wellbeing/who5")
+def who5_form(lang: str = "en"):
+    return wellbeing.who5_form(lang_of(lang))
+
+
+class Who5In(BaseModel):
+    answers: list[int] = Field(min_length=5, max_length=5)
+
+
+@app.post("/api/me/plan/who5")
+def who5_submit(body: Who5In, lang: str = "en", user=Depends(current_user)):
+    """WHO-5 at day 0, ~30 and ~84. A score of 28 or less offers a private talk with a doctor and the national support line."""
+    L = lang_of(lang)
+    try:
+        score = wellbeing.who5_score(body.answers)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    with db.tx() as c:
+        r = _my_plan(c, user)
+        if not r or r["status"] not in ("active", "self_guided"):
+            raise HTTPException(400, "No running plan")
+        week = min(companion.WEEKS, companion.week_of(r["start_at"]))
+        entries = security.unseal(r["wellbeing"]) or []
+        point = wellbeing.who5_due(week, entries)
+        if not point:
+            raise HTTPException(409, "No wellbeing check is due this week")
+        band = wellbeing.who5_band(score, L)
+        escalated = False
+        if band["action"] == "clinician_review" and consents(user)["clinician_review"] and not sharing.is_paused(c, user):
+            _message(c, r["assessment_id"], "riaya", wellbeing.nudge_text("low_wellbeing", L))
+            escalated = True
+        entries.append({"point": point, "score": score, "week": week, "ts": time.time(), "escalated": escalated})
+        c.execute("UPDATE plans SET wellbeing=? WHERE id=?", (security.seal(entries), r["id"]))
+        r = c.execute("SELECT * FROM plans WHERE id=?", (r["id"],)).fetchone()
+    db.event(r["assessment_id"], "who5", f"{point}:{score}")
+    if escalated:
+        db.event(r["assessment_id"], "who5_escalated", point)
+    return {"score": score, "point": point, "band": band, "escalated": escalated,
+            "support_line": SUPPORT_LINE[L] if band["band"] != "good" else None, "plan": _plan_view(r, L)}
+
+
+@app.get("/api/me/plan/barriers")
+def plan_barriers(lang: str = "en"):
+    return {"barriers": wellbeing.barriers(lang_of(lang))}
+
+
+class RestartIn(BaseModel):
+    keep: str = Field(min_length=1, max_length=40)
+    barrier: str = Field(pattern="^(time|urge|social|work|mood|forgot)$")
+
+
+@app.post("/api/me/plan/restart")
+def plan_restart(body: RestartIn, lang: str = "en", user=Depends(current_user)):
+    """Fresh start after a lapse: one goal, a smaller step, and his own if-then plan for what got in the way."""
+    with db.tx() as c:
+        r = _my_plan(c, user)
+        if not r or r["status"] not in ("active", "self_guided"):
+            raise HTTPException(400, "No running plan")
+        items = security.unseal(r["items"])
+        if body.keep not in [i["node"] for i in items]:
+            raise HTTPException(422, "Keep one of your current goals")
+        kept, info = wellbeing.restart_plan(items, body.keep, body.barrier, lang_of(lang))
+        c.execute("UPDATE plans SET items=?, restart=? WHERE id=?", (security.seal([kept]), security.seal(info), r["id"]))
+        r = c.execute("SELECT * FROM plans WHERE id=?", (r["id"],)).fetchone()
+    db.event(r["assessment_id"], "plan_restart", body.barrier)
+    return _plan_view(r, lang)
+
+
+class RamadanIn(BaseModel):
+    setting: str = Field(pattern="^(auto|on|off)$")
+
+
+@app.get("/api/me/ramadan")
+def get_ramadan(lang: str = "en", user=Depends(current_user)):
+    with db.tx() as c:
+        return wellbeing.ramadan_view(_ramadan_setting(c, user), lang_of(lang))
+
+
+@app.post("/api/me/ramadan")
+def set_ramadan(body: RamadanIn, lang: str = "en", user=Depends(current_user)):
+    with db.tx() as c:
+        c.execute("UPDATE users SET ramadan=? WHERE id=?", (body.setting, user))
+    return wellbeing.ramadan_view(body.setting, lang_of(lang))
+
+
+@app.get("/api/behaviour-design")
+def behaviour_design(lang: str = "en"):
+    """How the companion is built: COM-B targets, BCT Taxonomy v1 codes and Self-Determination Theory principles."""
+    return wellbeing.design(lang_of(lang))
+
+
+def run_jitai():
+    """Hourly decision point for every running plan: send at most one well-timed nudge, or nothing, and log why."""
+    sent = 0
+    with db.tx() as c:
+        rows = c.execute("""SELECT p.* FROM plans p JOIN users u ON u.id=p.user_id
+                            WHERE p.status IN ('active','self_guided') AND COALESCE(u.sharing_paused,0)=0""").fetchall()
+        for r in rows:
+            u = c.execute("SELECT reminders, ramadan, lang FROM users WHERE id=?", (r["user_id"],)).fetchone()
+            v = _plan_view(r, u["lang"] or "ar")
+            d = wellbeing.jitai_decide(v, security.unseal(r["wellbeing"]) or [], r["last_nudge_at"],
+                                       bool(r["reminders"]) and bool(u["reminders"] if u["reminders"] is not None else 1), v["ramadan"]["active"])
+            if not d["send"]:
+                continue
+            _message(c, r["assessment_id"], "riaya", wellbeing.nudge_text(d["send"], u["lang"] or "ar"))
+            c.execute("UPDATE plans SET last_nudge_at=? WHERE id=?", (time.time(), r["id"]))
+            c.execute("INSERT INTO events VALUES (?,?,?,?)", (time.time(), r["assessment_id"], "jitai", f"{d['send']}: {'; '.join(d['why'])}"))
+            sent += 1
+    return sent
+
+
+@app.get("/api/me/plan/nudge-decision")
+def nudge_decision(user=Depends(current_user)):
+    """Why the app would, or would not, nudge him right now (every rule is visible to him)."""
+    with db.tx() as c:
+        r = _my_plan(c, user)
+        if not r:
+            raise HTTPException(404, "No plan")
+        u = c.execute("SELECT reminders FROM users WHERE id=?", (user,)).fetchone()
+    v = _plan_view(r, "en")
+    return wellbeing.jitai_decide(v, security.unseal(r["wellbeing"]) or [], r["last_nudge_at"],
+                                  bool(r["reminders"]) and bool(u["reminders"] if u["reminders"] is not None else 1), v["ramadan"]["active"])
+
+
+# ------------------------------------------------------------------ closed-loop referral tracking (FHIR Task)
+def _loop(c, row):
+    ref = _referral(c, row["id"])
+    appt = c.execute("SELECT * FROM appointments WHERE assessment_id=? AND status!='cancelled' ORDER BY created_at DESC LIMIT 1",
+                     (row["id"],)).fetchone()
+    con = _consultation(c, row["id"])
+    level = _final_level(row, ref)
+    stg, cur = pathway.stages(row, ref, appt, con, level, "en")
+    loop = referral_loop.milestones(level, stg, ref)
+    return loop, referral_loop.fhir_task(row["id"], level, stg, cur, ref, loop)
+
+
+@app.get("/api/assessments/{aid}/referral-loop")
+def referral_loop_view(aid: str, user=Depends(current_user)):
+    row = own_assessment(aid, user)
+    with db.tx() as c:
+        loop, task = _loop(c, row)
+    return {**loop, "task": task}
+
+
+@app.get("/api/assessments/{aid}/fhir/task")
+def referral_task(aid: str, user=Depends(current_user)):
+    row = own_assessment(aid, user)
+    with db.tx() as c:
+        _, task = _loop(c, row)
+    return JSONResponse(task, headers={"Content-Disposition": "attachment; filename=referral-task.fhir.json"})
+
+
+@app.get("/api/clinician/referral-loop")
+def referral_loop_board(clin=Depends(current_clinician)):
+    """Every open referral against its time limits; late milestones show who it escalates to."""
+    out, met, total = [], 0, 0
+    with db.tx() as c:
+        rows = c.execute("""SELECT a.* FROM assessments a JOIN referrals r ON r.assessment_id=a.id
+                            WHERE a.completed_at IS NOT NULL AND a.user_id NOT IN (SELECT id FROM users WHERE sharing_paused=1)
+                              AND (a.review_consent=1 OR EXISTS (SELECT 1 FROM appointments x WHERE x.assessment_id=a.id))""").fetchall()
+        for row in rows:
+            loop, task = _loop(c, row)
+            met += loop["met_on_time"]
+            total += sum(1 for m in loop["milestones"] if m["done_at"])
+            for m in loop["overdue"]:
+                out.append({"id": row["id"], "priority": loop["priority"], "milestone": m["label"], "limit_hours": m["limit_hours"],
+                            "hours_late": round((time.time() - m["due_at"]) / 3600, 1), "escalate_to": m["escalate_to"],
+                            "task_status": task["status"], "simulated": bool(row["simulated"])})
+    db.audit(clin, "view_referral_loop")
+    prio = {"stat": 0, "urgent": 1, "routine": 2}
+    out.sort(key=lambda x: (prio.get(x["priority"], 3), -x["hours_late"]))
+    return {"overdue": out[:100], "on_time_pct": round(100 * met / total) if total else None, "milestones_done": total,
+            "limits": {k: {"priority": v[0], "hours": {m: round(s / 3600) for m, s in v[1].items()}} for k, v in referral_loop.SLA.items()}}
 
 
 # ------------------------------------------------------------------ Care Connect

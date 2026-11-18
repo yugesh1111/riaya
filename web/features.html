@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Riaya · How it works</title>
+<meta name="theme-color" content="#0f2a3a">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+  :root { --bg: #0b1a24; --ink: #eef0ec; --muted: #9fb0ba; --gold: #c9a86a; --line: rgba(238,240,236,.14); --card: rgba(238,240,236,.05); }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: radial-gradient(120% 90% at 50% 0%, #143041 0%, var(--bg) 60%); color: var(--ink);
+    font-family: "IBM Plex Sans", "IBM Plex Sans Arabic", system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 16px; overflow-x: hidden; }
+  .eyebrow { color: var(--gold); letter-spacing: .18em; text-transform: uppercase; font-size: 13px; }
+  h1 { font-weight: 500; font-size: clamp(26px, 4vw, 44px); margin: 10px 0 6px; text-align: center; }
+  .sub { color: var(--muted); margin: 0 0 34px; text-align: center; max-width: 720px; }
+  .ring { position: relative; width: min(1180px, 100%); border: 1px solid var(--line); border-radius: 28px; padding: 40px 22px 26px; }
+  .ring > .tag { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--bg); padding: 0 14px; color: var(--gold); font-size: 13px; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; }
+  .flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+  .step { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 18px 16px; opacity: 0; transform: translateY(14px); }
+  .step.in { opacity: 1; transform: none; transition: opacity .6s ease, transform .6s cubic-bezier(.2,.8,.2,1); }
+  .step .n { color: var(--gold); font-size: 12px; letter-spacing: .14em; }
+  .step h2 { font-size: 22px; font-weight: 500; margin: 6px 0 2px; }
+  .step .ar { color: var(--muted); font-size: 15px; margin-bottom: 10px; }
+  .step ul { list-style: none; padding: 0; margin: 0; font-size: 14px; line-height: 1.7; color: #d6dde0; }
+  .step:not(:last-child)::after { content: "→"; position: absolute; right: -14px; top: 26px; color: var(--gold); font-size: 18px; }
+  .foot { margin-top: 18px; text-align: center; color: var(--muted); font-size: 14px; opacity: 0; }
+  .foot.in { opacity: 1; transition: opacity .8s ease; }
+  .works { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 30px; opacity: 0; }
+  .works.in { opacity: 1; transition: opacity .8s ease; }
+  .works span { border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; font-size: 14px; }
+  .replay { margin-top: 26px; background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; font: inherit; cursor: pointer; }
+  .replay:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  @media (max-width: 900px) { .flow { grid-template-columns: 1fr; } .step:not(:last-child)::after { content: "↓"; right: auto; left: 50%; top: auto; bottom: -18px; } }
+  @media (prefers-reduced-motion: reduce) { .step, .foot, .works { opacity: 1; transform: none; transition: none; } }
+</style>
+</head>
+<body>
+  <div class="eyebrow">Riaya · رعاية</div>
+  <h1>A private front door to men's reproductive health</h1>
+  <p class="sub">From the first quiet question to a specialist and back, with the man in control of who sees what.</p>
+  <div class="ring">
+    <span class="tag">Privacy around everything · الخصوصية في كل خطوة</span>
+    <div class="flow">
+      <section class="step"><div class="n">01</div><h2>Talk</h2><div class="ar" lang="ar">تحدّث</div>
+        <ul><li>Voice in Arabic or English</li><li>4 Arabic accents</li><li>WhatsApp</li><li>Apple Watch · Wear OS</li><li>Scan a lab report</li></ul></section>
+      <section class="step"><div class="n">02</div><h2>Understand</h2><div class="ar" lang="ar">افهم</div>
+        <ul><li>Explained summary</li><li>Evidence graded A–D</li><li>Lab trends and forecast</li><li>Ask, with guardrails</li></ul></section>
+      <section class="step"><div class="n">03</div><h2>Act</h2><div class="ar" lang="ar">تصرّف</div>
+        <ul><li>Your best 3 changes</li><li>12-week projection</li><li>Companion (COM-B, BCT)</li><li>Ramadan mode</li></ul></section>
+      <section class="step"><div class="n">04</div><h2>Refer</h2><div class="ar" lang="ar">أحِل</div>
+        <ul><li>Doctor approves</li><li>Book · call · WhatsApp</li><li>Clinic portal</li><li>FHIR R4 Task</li></ul></section>
+      <section class="step"><div class="n">05</div><h2>Follow up</h2><div class="ar" lang="ar">تابِع</div>
+        <ul><li>Visit summary back</li><li>WHO-5 at day 0 · 30 · 84</li><li>Fresh start after a lapse</li><li>Re-check at 3 months</li></ul></section>
+    </div>
+    <p class="foot">One switch pauses all sharing · he chooses what each doctor sees · nothing leaves without consent</p>
+  </div>
+  <div class="works"><span>iPhone</span><span>Android</span><span>Apple Watch</span><span>Wear OS</span><span>Garmin · Fitbit</span><span>WhatsApp</span><span>FHIR R4</span><span>العربية · English</span></div>
+  <button class="replay" id="replay">↻ Replay</button>
+<script>
+  const play = () => {
+    const els = [...document.querySelectorAll(".step"), document.querySelector(".foot"), document.querySelector(".works")];
+    els.forEach(e => e.classList.remove("in"));
+    els.forEach((e, i) => setTimeout(() => e.classList.add("in"), 300 + i * 650));
+  };
+  document.getElementById("replay").onclick = play;
+  play();
+</script>
+</body>
+</html>

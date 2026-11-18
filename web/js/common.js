@@ -130,12 +130,12 @@ const Notes = {
   const upgrade = root => {
     root.querySelectorAll(".opt:not([data-a11y])").forEach(el => {
       el.dataset.a11y = "1";
-      el.setAttribute("role", "button");
+      if (!el.getAttribute("role")) el.setAttribute("role", "button");
       el.tabIndex = 0;
-      el.setAttribute("aria-pressed", el.classList.contains("on") ? "true" : "false");
+      el.setAttribute(el.getAttribute("role") === "radio" ? "aria-checked" : "aria-pressed", el.classList.contains("on") ? "true" : "false");
       el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); el.click(); } });
     });
-    root.querySelectorAll(".opt[data-a11y]").forEach(el => el.setAttribute("aria-pressed", el.classList.contains("on") ? "true" : "false"));
+    root.querySelectorAll(".opt[data-a11y]").forEach(el => el.setAttribute(el.getAttribute("role") === "radio" ? "aria-checked" : "aria-pressed", el.classList.contains("on") ? "true" : "false"));
     root.querySelectorAll("input:not([aria-label]):not([type=hidden]), select:not([aria-label]), textarea:not([aria-label])").forEach(el => {
       if (el.id && document.querySelector(`label[for="${el.id}"]`)) return;
       let prev = el.previousElementSibling;

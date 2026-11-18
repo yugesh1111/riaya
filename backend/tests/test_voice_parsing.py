@@ -15,10 +15,13 @@ ROOT = Path(__file__).resolve().parents[2]
 
 NUMBERS = [("I am thirty two", 32), ("عمري اثنين وثلاثين", 32), ("٣٤ سنة", 34), ("ست ونص", 6.5), ("six and a half hours", 6.5),
            ("one seventy eight", 178), ("one hundred and seventy eight", 178), ("a hundred and eighty", 180), ("ninety five kilos", 95),
-           ("مية وثمانين", 180), ("مية وخمسة وسبعين", 175), ("خمسة وتسعين", 95), ("175", 175)]
+           ("مية وثمانين", 180), ("مية وخمسة وسبعين", 175), ("خمسة وتسعين", 95), ("175", 175),
+           # spoken answers end with a full stop when the speech service adds punctuation
+           ("I'm thirty four.", 34), ("One seventy eight.", 178), ("About ninety two kilos.", 92), ("5.5", 5.5)]
 MONTHS = [("18 months", 18), ("eighteen months", 18), ("a year and a half", 18), ("2 years", 24), ("three and a half years", 42),
-          ("سنة ونص", 18), ("سنة", 12), ("سنتين", 24), ("ثلاث سنوات", 36), ("ستة اشهر", 6)]
-YESNO = [("yeah I do", "yes"), ("لا ما أدخن", "no"), ("ايه", "yes"), ("مب متأكد", "unsure"), ("مادري", "unsure"), ("skip", "skip")]
+          ("سنة ونص", 18), ("سنة", 12), ("سنتين", 24), ("ثلاث سنوات", 36), ("ستة اشهر", 6), ("About a year and a half.", 18)]
+YESNO = [("yeah I do", "yes"), ("لا ما أدخن", "no"), ("ايه", "yes"), ("مب متأكد", "unsure"), ("مادري", "unsure"), ("skip", "skip"),
+         ("No.", "no"), ("Yes, my wife says I snore.", "yes"), ("نعم، ما عندي مانع", "yes"), ("no problem", "yes"), ("ما عندي", "no"), ("No, never", "no")]
 
 
 @pytest.mark.skipif(not shutil.which("node"), reason="Node is not installed")

@@ -28,17 +28,26 @@ DECLINE = ["not_accepting", "wrong_service", "no_slots", "insurance", "other"]
 SHARE_DAYS = 14
 
 
+# Public appointment lines, from each organisation's own website (checked November 2026).
+# Cleveland Clinic Abu Dhabi: 800 8 2223 (Contact Center). SEHA facilities: 80050 (call centre) and WhatsApp 02 410 2200.
+CONTACT = {"ccad": ("800 8 2223", None), "ahs": ("80050", "+97124102200"), "skmc": ("80050", "+97124102200"),
+           "ssmc": ("80050", "+97124102200"), "tawam": ("80050", "+97124102200")}
+
+
 def seed(c):
     for p in SEED:
         if not c.execute("SELECT 1 FROM providers WHERE id=?", (p[0],)).fetchone():
             c.execute("INSERT INTO providers (id,name_en,name_ar,area,area_ar,sector,kinds,website) VALUES (?,?,?,?,?,?,?,?)",
                       (*p[:6], json.dumps(p[6]), p[7]))
+    for pid, (phone, wa) in CONTACT.items():
+        c.execute("UPDATE providers SET phone=COALESCE(phone, ?), whatsapp=COALESCE(whatsapp, ?) WHERE id=?", (phone, wa, pid))
 
 
 def provider_view(r, lang="en", staff=False):
     out = {"id": r["id"], "name": r["name_ar"] if lang == "ar" else r["name_en"], "name_en": r["name_en"], "name_ar": r["name_ar"],
            "area": r["area_ar"] if lang == "ar" else r["area"], "sector": r["sector"], "kinds": json.loads(r["kinds"]),
-           "website": r["website"], "confirmed_at": r["confirmed_at"], "confirm_note": r["confirm_note"]}
+           "website": r["website"], "confirmed_at": r["confirmed_at"], "confirm_note": r["confirm_note"],
+           "phone": r["phone"] if "phone" in r.keys() else None, "whatsapp": r["whatsapp"] if "whatsapp" in r.keys() else None}
     if staff:
         out.update(active=bool(r["active"]), confirmed_by=r["confirmed_by"], area_ar=r["area_ar"])
     return out

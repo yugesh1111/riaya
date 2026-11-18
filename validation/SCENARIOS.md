@@ -1,6 +1,6 @@
 # Scenario checks
 
-Generated 2026-11-18 19:47 by `python validation/scenario_checks.py`. Every number below comes from a check the script ran against the app on a throwaway database; none is estimated. These are internal tests written by the team, not an independent clinical validation.
+Generated 2026-11-19 00:25 by `python validation/scenario_checks.py`. Every number below comes from a check the script ran against the app on a throwaway database; none is estimated. These are internal tests written by the team, not an independent clinical validation.
 
 | What was checked | Result |
 |---|---|

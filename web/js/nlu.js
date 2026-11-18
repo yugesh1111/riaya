@@ -20,7 +20,9 @@
   const norm = s => String(s || "").toLowerCase()
     .replace(/[٠-٩]/g, d => AR_DIGITS[d])
     .replace(/[إأآ]/g, "ا").replace(/ى/g, "ي").replace(/[ًٌٍَُِّْـ]/g, "")
-    .replace(/[^\p{L}\p{N}.\s]/gu, " ").replace(/\s+/g, " ").trim();
+    .replace(/[^\p{L}\p{N}.\s]/gu, " ")
+    .replace(/(?<!\d)\.|\.(?!\d)/g, " ")  // full stops end words ("four." "no."); keep decimal points ("5.5")
+    .replace(/\s+/g, " ").trim();
 
   function number(text) {
     const t = norm(text);
@@ -54,6 +56,10 @@
     const words = t.split(/\s+/).map(w => w.replace(/^و/, ""));
     if (words.some(w => TWO_YEARS.includes(w))) { const rest = number(t.replace(/سنتين|سنتان|عامين/g, "")); return 24 + (rest && rest < 1 ? rest * 12 : 0); }
     if (words.some(w => YEAR_WORDS.includes(w))) {
+      // "a year and <something we didn't catch>" must not quietly become 12 months: ask again instead
+      const leftover = words.filter(w => !YEAR_WORDS.includes(w) && !(w in NUM_WORDS) && !HUNDRED_AR.includes(w) && !/^\d/.test(w) &&
+        !["a", "and", "about", "around", "almost", "nearly", "over", "more", "than", "just", "ago", "for", "we", "have", "been", "trying", "تقريبا", "حوالي", "اكثر", "من", "صار", "لنا", "لي", "تقريبًا", "بس", "يعني", "واحد", "وحدة", "حدود"].includes(w));
+      if (/(^|\s)(and|و)\s*$/.test(t) || leftover.length > 1) return null;
       const n = number(t.replace(/\ba\b/g, ""));
       return Math.round((n == null ? 1 : n < 1 ? 1 + n : n) * 12);  // "a year" = 12, "a year and a half" = 18
     }
@@ -65,12 +71,20 @@
   const UNSURE = ["not sure", "dont know", "don t know", "maybe", "unsure", "مادري", "ما ادري", "لا اعرف", "مش متاكد", "مب متاكد", "يمكن", "ربما"];
   const SKIP = ["skip", "prefer not", "pass", "next", "تخطي", "تخطى", "افضل عدم", "ما ابي اجاوب", "بعدين", "التالي"];
 
+  // agreement said with a negative word in it: "no problem", "I don't mind", "ما عندي مانع"
+  const YES_PHRASES = ["no problem", "dont mind", "don t mind", "i don t mind", "of course", "go ahead", "why not", "sounds good",
+                       "ما عندي مانع", "ماعندي مانع", "لا مانع", "ما في مانع", "مافي مانع", "ما في مشكلة", "مافي مشكلة", "ما في مشكله", "مافي مشكله", "ولا يهمك", "على راسي"];
   const has = (t, words) => words.some(w => new RegExp(`(^|\\s)${norm(w)}(\\s|$)`).test(t));
+  const first = t => t.split(" ")[0];
 
   function yesNo(text, allowUnsure = true) {
     const t = norm(text);
     if (has(t, SKIP)) return "skip";
     if (allowUnsure && has(t, UNSURE)) return "unsure";
+    if (has(t, YES_PHRASES)) return "yes";
+    // a clear yes or no at the start decides: "yes, my wife says I snore", "no, never"
+    if (YES.map(norm).includes(first(t))) return "yes";
+    if (["no", "nope", "nah", "لا", "لاء", "كلا", "never", "ابدا"].includes(first(t))) return "no";
     if (has(t, NO)) return "no";
     if (has(t, YES)) return "yes";
     return null;

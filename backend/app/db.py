@@ -103,8 +103,11 @@ MIGRATIONS = {
                   ("tests_done_at", "REAL"), ("followup_at", "REAL"), ("barrier", "TEXT"), ("self_reported", "INTEGER DEFAULT 0")],
     "messages": [("audio", "BLOB"), ("mime", "TEXT"), ("seconds", "REAL")],
     "sessions": [("last_seen", "REAL")],
-    "users": [("sharing_paused", "INTEGER DEFAULT 0"), ("retention_months", "INTEGER"), ("last_active", "REAL"), ("reminders", "INTEGER DEFAULT 1")],
+    "users": [("sharing_paused", "INTEGER DEFAULT 0"), ("retention_months", "INTEGER"), ("last_active", "REAL"), ("reminders", "INTEGER DEFAULT 1"),
+              ("ramadan", "TEXT DEFAULT 'auto'")],
     "shares": [("scope", "TEXT"), ("purpose", "TEXT DEFAULT 'clinic'")],
+    "providers": [("phone", "TEXT"), ("whatsapp", "TEXT")],
+    "plans": [("wellbeing", "BLOB"), ("restart", "BLOB"), ("last_nudge_at", "REAL")],
 }
 
 

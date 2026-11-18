@@ -5,13 +5,23 @@ const C = {
         working: "Preparing your summary…", full: "See my full summary", more: "Add more detail (devices, tests)", voices: { auto: "Default voice" },
         start: "Start with voice", startText: "Start without voice", handsFree: "Hands-free", private: "Private mode (speech stays on this phone)",
         loading: p => `Preparing on-phone speech model ${p}%…`, heardNothing: "I didn't hear anything. Tap the mic and speak, or type your answer.", switching: "This browser's speech service isn't available, so Riaya is using on-phone speech instead. The first time takes a moment to prepare.", editHint: "Not quite right? Correct the words in the box and press Send.", thinking: "Understanding…", micDenied: "Microphone access was blocked. Allow it in your browser settings, or type instead.",
-        noVoiceLang: "This phone has no Arabic voice installed, so questions are shown as text." },
+        noVoiceLang: "This phone has no Arabic voice installed, so questions are shown as text.",
+        pickLang: "Which language would you like to talk in?", accent: "Accent", hear: "Hear this voice", natural: "natural",
+        lead: "Talk it through. About three minutes, no name, no number.", q: (i, n) => `Question ${i} of ${n}`,
+        orb: { idle: "", speaking: "Riaya is speaking", listening: "Listening", thinking: "Understanding" },
+        sample: "Hello. I'm Riaya. I'll ask a few quick questions, and you can answer by talking.",
+        bestVoice: v => `Voice: ${v}`, installTip: "For the most natural voice on iPhone or Mac: Settings › Accessibility › Spoken Content › Voices, and download a Premium voice." },
   ar: { voice: "الصوت", send: "إرسال", typeHere: "اكتب أو اضغط على الميكروفون…", listening: "أستمع إليك…", notUnderstood: "عذراً، لم أفهم. يمكنك أيضاً اختيار أحد الخيارات.",
         micNote: "تحوّل خدمة المتصفح الكلام إلى نص؛ ويُحفظ نص الإجابة فقط.", noMic: "الإدخال الصوتي غير متاح في هذا المتصفح — اكتب أو اختر بدلاً من ذلك.",
         working: "جارٍ إعداد ملخصك…", full: "اعرض ملخصي الكامل", more: "أضف تفاصيل أكثر (الأجهزة، الفحوصات)", voices: { auto: "الصوت الافتراضي" },
         start: "ابدأ بالصوت", startText: "ابدأ بدون صوت", handsFree: "بدون استخدام اليدين", private: "الوضع الخاص (يبقى الكلام على هذا الهاتف)",
         loading: p => `جارٍ تجهيز نموذج الكلام على الهاتف ${p}٪…`, heardNothing: "لم أسمع شيئاً. اضغط على الميكروفون وتحدّث، أو اكتب إجابتك.", switching: "خدمة الكلام في هذا المتصفح غير متاحة، لذا تستخدم رعاية التعرّف على الكلام داخل الهاتف. يستغرق التجهيز لحظة في المرة الأولى.", editHint: "ليس صحيحاً تماماً؟ صحّح الكلمات في المربع واضغط إرسال.", thinking: "جارٍ الفهم…", micDenied: "تم حظر الميكروفون. اسمح به من إعدادات المتصفح، أو اكتب بدلاً من ذلك.",
-        noVoiceLang: "لا يوجد صوت عربي مثبت على هذا الهاتف، لذا تظهر الأسئلة كنص." },
+        noVoiceLang: "لا يوجد صوت عربي مثبت على هذا الهاتف، لذا تظهر الأسئلة كنص.",
+        pickLang: "بأي لغة تحب أن نتحدث؟", accent: "اللهجة", hear: "اسمع هذا الصوت", natural: "طبيعي",
+        lead: "تحدّث معنا. نحو ثلاث دقائق، بلا اسم ولا رقم.", q: (i, n) => `السؤال ${i} من ${n}`,
+        orb: { idle: "", speaking: "رعاية تتحدث", listening: "أستمع إليك", thinking: "جارٍ الفهم" },
+        sample: "مرحباً، أنا رعاية. سأطرح عليك أسئلة سريعة، ويمكنك الإجابة بصوتك.",
+        bestVoice: v => `الصوت: ${v}`, installTip: "لأكثر صوت طبيعي على آيفون أو ماك: الإعدادات › تسهيلات الاستخدام › المحتوى المنطوق › الأصوات، ونزّل صوتاً مميزاً (Premium)." },
 };
 const o = (value, en, ar, keys = []) => ({ value, en, ar, keys: [en, ar, ...keys] });
 const YN = [o("yes", "Yes", "نعم"), o("no", "No", "لا")];
@@ -75,18 +85,30 @@ const STEPS = [
 let L = LANG, S = { answers: {}, step: 0, aid: null, multi: [] }, voices = [], rec = null;
 const log = () => $("#log");
 const CT = k => C[L][k];
+const accentKey = () => store.get("accent_" + L) || Voice.ACCENTS[L][0].key;
+const locale = () => (Voice.ACCENTS[L].find(a => a.key === accentKey()) || Voice.ACCENTS[L][0]).locale;
+
+/* The voice orb shows what Riaya is doing: speaking, listening or understanding. */
+function orb(state) {
+  const o = $("#orb");
+  if (!o) return;
+  o.dataset.state = state;
+  $("#orbLabel").textContent = CT("orb")[state] || "";
+}
 
 function speak(text, then) {
   if (!$("#voiceOn").checked) { then && then(); return; }
-  Voice.speak(text, { lang: L, voiceName: $("#voice").value, onend: then });
+  Voice.speak(text, { lang: L, locale: locale(), voiceName: $("#voice").value, onstart: () => orb("speaking"),
+                      onend: () => { orb("idle"); then && then(); } });
 }
 
 function loadVoices() {
-  voices = Voice.voicesFor(L);
+  voices = Voice.voicesFor(L, locale());
   const saved = store.get("voice_" + L);
-  $("#voice").innerHTML = `<option value="">${CT("voices").auto}</option>` +
-    voices.map(v => `<option ${v.name === saved ? "selected" : ""}>${esc(v.name)}</option>`).join("");
-  $("#voiceNote").textContent = window.speechSynthesis && speechSynthesis.getVoices().length && !voices.length && L === "ar" ? CT("noVoiceLang") : "";
+  $("#voice").innerHTML = `<option value="">${CT("voices").auto}${voices[0] ? ` (${esc(voices[0].name)})` : ""}</option>` +
+    voices.map(v => `<option value="${esc(v.name)}" ${v.name === saved ? "selected" : ""}>${esc(v.name)}${v._natural ? ` · ${CT("natural")}` : ""}</option>`).join("");
+  $("#voiceNote").textContent = window.speechSynthesis && speechSynthesis.getVoices().length && !voices.length && L === "ar" ? CT("noVoiceLang")
+    : voices.length && !voices[0]._natural ? CT("installTip") : "";
 }
 
 function bubble(text, who) {
@@ -94,7 +116,27 @@ function bubble(text, who) {
   d.className = "bubble " + who;
   d.textContent = text;
   log().appendChild(d);
+  requestAnimationFrame(() => d.classList.add("in"));
   d.scrollIntoView({ behavior: "smooth", block: "end" });
+  return d;
+}
+
+/* Riaya "types" for a moment before each message, like a person would. */
+function botSay(text) {
+  return new Promise(res => {
+    const d = bubble("", "bot typing");
+    d.innerHTML = `<span class="dots" aria-label="…"><i></i><i></i><i></i></span>`;
+    setTimeout(() => { d.classList.remove("typing"); d.textContent = text; d.scrollIntoView({ behavior: "smooth", block: "end" }); res(d); },
+               Math.min(900, 280 + text.length * 4));
+  });
+}
+
+function progress() {
+  const live = STEPS.filter(q => !q.when || q.when(S.answers));
+  const idx = live.indexOf(STEPS[S.step]);
+  const n = live.length, i = Math.max(0, idx) + 1;
+  $("#prog").style.width = `${Math.round(100 * (i - 1) / n)}%`;
+  $("#progLabel").textContent = S.step < STEPS.length ? CT("q")(i, n) : "";
 }
 
 function current() {
@@ -102,14 +144,15 @@ function current() {
   return STEPS[S.step];
 }
 
-function ask() {
+async function ask() {
   const q = current();
   if (!q) return finish();
-  bubble(q[L], "bot");
+  progress();
+  await botSay(q[L]);
   speak(q[L], () => { if (handsFree() && !S.finished) startListening(); });
   S.multi = [];
   const opts = q.opts || (q.skippable ? [SKIPO] : []);
-  $("#chips").innerHTML = opts.map((x, i) => `<span class="opt" data-i="${i}">${esc(x[L])}</span>`).join("") +
+  $("#chips").innerHTML = opts.map((x, i) => `<span class="opt" role="button" tabindex="0" style="--d:${i * 40}ms" data-i="${i}">${esc(x[L])}</span>`).join("") +
     (q.multi ? `<span class="opt" id="done" style="border-color:var(--brand)">✓</span>` : "");
   $$("#chips .opt[data-i]").forEach(el => el.onclick = () => {
     const x = opts[+el.dataset.i];
@@ -139,7 +182,7 @@ function onText(text, spoken) {
   if (!q || !text.trim()) return;
   const v = interpret(q, text);
   if (v == null) {
-    bubble(text, "me"); bubble(CT("notUnderstood"), "bot");
+    bubble(text, "me"); botSay(CT("notUnderstood"));
     if (spoken) { $("#text").value = text; $("#micNote").textContent = CT("editHint"); }
     speak(CT("notUnderstood"), () => handsFree() && startListening());
     return;
@@ -175,7 +218,8 @@ async function answer(v, shown) {
 async function finish() {
   S.finished = true;
   $("#chips").innerHTML = "";
-  bubble(CT("working"), "bot");
+  $("#prog").style.width = "100%"; $("#progLabel").textContent = "";
+  await botSay(CT("working"));
   const clean = { ...S.answers }; delete clean.rf_any;
   await API.put(`/api/assessments/${S.aid}/answers`, { answers: clean });
   await API.post(`/api/assessments/${S.aid}/submit?lang=${L}`);
@@ -183,25 +227,57 @@ async function finish() {
   store.set("done", "1");
   const lines = [r.disclaimer, "", r.summary, r.next_step];
   if (r.plan.length) lines.push("", (L === "ar" ? "أهم فرصك:" : "Your top opportunities:"), ...r.plan.map((p, i) => `${i + 1}. ${p.action}`));
-  bubble(lines.join("\n"), "bot");
+  await botSay(lines.join("\n"));
   speak([r.summary, r.next_step, ...r.plan.map(p => p.action)].join(". "));
   $("#chips").innerHTML = `<a class="btn" href="index.html">${CT("full")}</a> <a class="btn ghost" href="index.html#more">${CT("more")}</a>`;
 }
 
 const handsFree = () => $("#handsFree").checked;
+
+/* Demo mode (chat.html?demo=en or ?demo=ar), for recording the product video and for judges without a microphone.
+   Each answer is a recorded clip of a man speaking. It is played aloud and recognised by the same on-phone Whisper
+   model that serves private mode, so the understanding shown is real; nothing is typed for him.
+   If the speech model cannot load (offline), the clip's script is used and the bubble says so. */
+const DEMO = (() => { const d = new URLSearchParams(location.search).get("demo"); return d === "ar" || d === "en" ? d : null; })();
+const demo = { i: 0, lines: null, ready: null };
+const demoSize = () => (new URLSearchParams(location.search).get("model") || (L === "ar" ? "small" : "base"));
+async function demoListen() {
+  const q = current();
+  if (!q || S.finished) return;
+  if (!demo.lines) demo.lines = await (await fetch(`demo/${DEMO}/lines.json`)).json();
+  const n = String(++demo.i).padStart(2, "0");
+  const blob = await (await fetch(`demo/${DEMO}/${n}.m4a`)).blob();
+  const audio = new Audio(URL.createObjectURL(blob));
+  micState("listening"); $("#mic").classList.add("live");
+  const heard = Promise.race([Voice.transcribe(blob, L, null, demoSize()).catch(() => null), new Promise(r => setTimeout(() => r(null), 30000))]);
+  await new Promise(res => { audio.onended = res; audio.onerror = res; audio.play().catch(res); });
+  micState("thinking");
+  let text = await heard;
+  let scripted = false;
+  // if the model mishears a clip, use its script rather than derail the demo, and say so on screen
+  const want = JSON.stringify(interpret(q, demo.lines[demo.i - 1]));
+  if (!text || JSON.stringify(interpret(q, text)) !== want) { demo.misheard = text; text = demo.lines[demo.i - 1]; scripted = true; }
+  else demo.misheard = null;
+  $("#text").value = "";
+  micState("idle");
+  onText(text, true);
+  $("#micNote").textContent = scripted ? (L === "ar" ? `وضع العرض: لم يُفهم المقطع${demo.misheard ? ` («${demo.misheard}»)` : ""}، فاستُخدم نص الإجابة.` : `Demo mode: the clip wasn't understood${demo.misheard ? ` ("${demo.misheard}")` : ""}, so its script was used.`) : "";
+}
 let listening = null, quietTries = 0, browserASRDown = false;
 
 function micState(st, pct) {
   $("#mic").classList.toggle("live", st === "listening");
+  orb(st === "loading" ? "thinking" : st);
   $("#text").placeholder = st === "listening" ? CT("listening") : st === "thinking" ? CT("thinking") : st === "loading" ? CT("loading")(pct || 0) : CT("typeHere");
 }
 
 async function startListening() {
+  if (DEMO) return demoListen();
   if (listening || !(Voice.hasBrowserASR || Voice.canRecord)) return;
-  if (window.speechSynthesis) speechSynthesis.cancel();
+  Voice.stopSpeaking();
   const box = $("#text");
   const usePrivate = $("#private").checked || browserASRDown || !Voice.hasBrowserASR;
-  const h = Voice.listen({ lang: L, privateMode: usePrivate, onState: micState, onPartial: t => { box.value = t; } });
+  const h = Voice.listen({ lang: L, locale: locale(), privateMode: usePrivate, onState: micState, onPartial: t => { box.value = t; } });
   listening = h;
   try {
     const alts = await h.result;
@@ -243,7 +319,8 @@ function chrome() {
   loadVoices(); setupMic();
 }
 
-$("#langBtn").onclick = () => { L = LANG = L === "ar" ? "en" : "ar"; store.set("lang", L); chrome(); log().innerHTML = ""; S = { answers: {}, step: 0, aid: null, multi: [] }; ask(); };
+$("#langBtn").onclick = () => { L = LANG = L === "ar" ? "en" : "ar"; store.set("lang", L); chrome(); log().innerHTML = ""; S = { answers: {}, step: 0, aid: null, multi: [] };
+  if (S.started) ask(); else startPad(); };
 $("#voice").onchange = e => store.set("voice_" + L, e.target.value);
 $("#send").onclick = () => { onText($("#text").value); $("#text").value = ""; };
 $("#text").onkeydown = e => { if (e.key === "Enter") { onText(e.target.value); e.target.value = ""; } };
@@ -252,7 +329,43 @@ API.token = store.get("token");
 $("#private").checked = store.get("private_voice") === "1";
 $("#private").onchange = e => store.set("private_voice", e.target.checked ? "1" : "0");
 chrome();
-// one tap is needed before phones allow audio; it also decides voice on/off
-$("#log").innerHTML = `<div class="startpad"><button class="btn" id="startVoice">${CT("start")}</button><button class="btn ghost" id="startText">${CT("startText")}</button></div>`;
-$("#startVoice").onclick = () => { $("#voiceOn").checked = true; $("#handsFree").checked = Voice.hasBrowserASR || Voice.canRecord; $("#log").innerHTML = ""; ask(); };
-$("#startText").onclick = () => { $("#voiceOn").checked = false; $("#handsFree").checked = false; $("#log").innerHTML = ""; ask(); };
+/* Start: he picks the language and accent, can hear the voice first, then starts by voice or by typing.
+   One tap is needed before phones allow audio; it also decides voice on/off. */
+function startPad() {
+  if (DEMO && L !== DEMO) { L = LANG = DEMO; store.set("lang", L); chrome(); }
+  if (DEMO && !demo.ready) demo.ready = Voice.loadWhisper(p => { if (p && p.status === "progress" && $("#demoNote")) $("#demoNote").textContent = CT("loading")(Math.round(p.progress || 0)); }, demoSize())
+    .then(() => { if ($("#demoNote")) $("#demoNote").textContent = L === "ar" ? "جاهز: إجابات مسجلة تُفهم على الهاتف" : "Ready: recorded answers, understood on the phone"; }).catch(() => {});
+  const accents = Voice.ACCENTS[L];
+  $("#log").innerHTML = `<div class="startpad">
+    <div class="orb big" id="orbStart" data-state="idle" aria-hidden="true"><i></i><i></i><i></i></div>
+    <p class="lead" style="text-align:center;margin:0">${esc(CT("lead"))}</p>
+    <p class="small muted" style="text-align:center;margin:8px 0 0">${esc(CT("pickLang"))}</p>
+    <div class="langpick" role="radiogroup" aria-label="${esc(CT("pickLang"))}">
+      <button class="langcard ${L === "ar" ? "on" : ""}" role="radio" aria-checked="${L === "ar"}" data-l="ar"><b lang="ar">العربية</b><span>Arabic</span></button>
+      <button class="langcard ${L === "en" ? "on" : ""}" role="radio" aria-checked="${L === "en"}" data-l="en"><b>English</b><span lang="ar">الإنجليزية</span></button>
+    </div>
+    <p class="small muted" style="margin:4px 0 0">${esc(CT("accent"))}</p>
+    <div class="opts accents" role="radiogroup" aria-label="${esc(CT("accent"))}">${accents.map(a => `<span class="opt ${a.key === accentKey() ? "on" : ""}" role="radio" tabindex="0" aria-checked="${a.key === accentKey()}" data-a="${a.key}">${esc(a[L])}</span>`).join("")}</div>
+    <button class="chip" id="hear">▶ ${esc(CT("hear"))}</button>
+    <p class="small muted" id="voiceName" style="text-align:center;margin:0"></p>
+    <button class="btn" id="startVoice">${esc(CT("start"))}</button><button class="btn ghost" id="startText">${esc(CT("startText"))}</button>
+    ${DEMO ? `<p class="small muted" style="text-align:center" id="demoNote">${L === "ar" ? "وضع العرض" : "Demo mode"}</p>` : ""}</div>`;
+  const showVoice = () => { const v = Voice.voicesFor(L, locale())[0]; $("#voiceName").textContent = v ? CT("bestVoice")(v.name) : ""; };
+  showVoice();
+  $$(".langcard").forEach(b => b.onclick = () => { if (b.dataset.l !== L) { L = LANG = b.dataset.l; store.set("lang", L); chrome(); startPad(); } });
+  $$(".accents .opt").forEach(o => {
+    const pickIt = () => { store.set("accent_" + L, o.dataset.a); store.del("voice_" + L); loadVoices(); startPad(); };
+    o.onclick = pickIt;
+  });
+  $("#hear").onclick = () => {
+    const so = $("#orbStart");
+    $("#voiceOn").checked = true;
+    Voice.speak(CT("sample"), { lang: L, locale: locale(), voiceName: $("#voice").value, onstart: () => so.dataset.state = "speaking", onend: () => so.dataset.state = "idle" });
+  };
+  const begin = voice => { S.started = true; $("#voiceOn").checked = voice; $("#handsFree").checked = voice && (DEMO || Voice.hasBrowserASR || Voice.canRecord);
+    $("#log").innerHTML = ""; $("#dock").hidden = false; ask(); };
+  $("#startVoice").onclick = () => begin(true);
+  $("#startText").onclick = () => begin(false);
+  $("#dock").hidden = true;
+}
+startPad();
