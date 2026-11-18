@@ -14,6 +14,9 @@
     "نص": 0.5, "نصف": 0.5,
   };
 
+  const HUNDRED_AR = ["مية", "ميه", "مئة", "مئه", "مائة", "مائه", "مايه"];
+  const TWO_HUNDRED = { "ميتين": 1, "مئتين": 1, "مئتان": 1, "مايتين": 1, "two hundred": 1 };
+
   const norm = s => String(s || "").toLowerCase()
     .replace(/[٠-٩]/g, d => AR_DIGITS[d])
     .replace(/[إأآ]/g, "ا").replace(/ى/g, "ي").replace(/[ًٌٍَُِّْـ]/g, "")
@@ -23,14 +26,38 @@
     const t = norm(text);
     const m = t.match(/\d+(?:\.\d+)?/);
     if (m) return parseFloat(m[0]);
-    // word numbers: "thirty two", "اثنين وثلاثين", "ست ونص"
-    let total = 0, found = false;
+    // word numbers: "thirty two", "اثنين وثلاثين", "ست ونص", "one hundred and seventy eight",
+    // and the way heights and weights are usually spoken: "one seventy eight" = 178, "مية وثمانين" = 180
+    let total = 0, found = false, prevUnit = false;
     for (const raw of t.split(/\s+|و(?=\S)/)) {
       const w = raw.replace(/^و/, "");
-      if (w in NUM_WORDS) { total += NUM_WORDS[w]; found = true; }
-      else if (w === "hundred" && found) total *= 100;
+      if (w === "hundred" || HUNDRED_AR.includes(w)) {  // "one hundred" = 100 x 1; "a hundred" / "مية" = 100
+        total = (total >= 1 && total <= 9 ? total : 1) * 100; found = true; prevUnit = false; continue;
+      }
+      if (w in TWO_HUNDRED) { total += 200; found = true; prevUnit = false; continue; }
+      if (!(w in NUM_WORDS)) continue;
+      const v = NUM_WORDS[w];
+      // English "one seventy" -> 170. Not Arabic: there units come first ("اثنين وثلاثين" = 32).
+      if (prevUnit && /^[a-z]/.test(w) && total >= 1 && total <= 9 && v >= 20 && v <= 90 && v % 10 === 0) total = total * 100 + v;
+      else total += v;
+      found = true;
+      prevUnit = v >= 1 && v <= 9 && Number.isInteger(v);
     }
     return found ? total : null;
+  }
+
+  /* durations in months: "18 months", "a year and a half", "2 years", "سنة ونص", "سنتين", "ثلاث سنوات" */
+  const YEAR_WORDS = ["year", "years", "yr", "yrs", "سنة", "سنه", "سنين", "سنوات", "عام", "اعوام"];
+  const TWO_YEARS = ["سنتين", "سنتان", "عامين"];
+  function months(text) {
+    const t = norm(text);
+    const words = t.split(/\s+/).map(w => w.replace(/^و/, ""));
+    if (words.some(w => TWO_YEARS.includes(w))) { const rest = number(t.replace(/سنتين|سنتان|عامين/g, "")); return 24 + (rest && rest < 1 ? rest * 12 : 0); }
+    if (words.some(w => YEAR_WORDS.includes(w))) {
+      const n = number(t.replace(/\ba\b/g, ""));
+      return Math.round((n == null ? 1 : n < 1 ? 1 + n : n) * 12);  // "a year" = 12, "a year and a half" = 18
+    }
+    return number(t);
   }
 
   const YES = ["yes", "yeah", "yep", "sure", "correct", "right", "true", "i do", "نعم", "اي", "ايه", "ايوه", "ايوا", "اكيد", "صح", "بلى", "اجل", "طبعا", "يب", "اوكي", "ok", "okay"];
@@ -61,6 +88,6 @@
     return best;
   }
 
-  root.NLU = { norm, number, yesNo, choice };
+  root.NLU = { norm, number, months, yesNo, choice };
   if (typeof module !== "undefined") module.exports = root.NLU;
 })(typeof window !== "undefined" ? window : globalThis);

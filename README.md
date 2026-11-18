@@ -29,6 +29,19 @@ A privacy-first, Arabic-first pre-screen that helps men in Abu Dhabi understand 
 ### Added after the review feedback (see `docs/FEEDBACK_RESPONSE.md`)
 - **Private health companion**: a ladder of *safe next steps* (now, next weeks, 3 months, what not to do, when to get help sooner) and an *Ask about your summary* box. Answers are built only from his own summary and the evidence map, cite their evidence grade, and run three guardrails first (urgent symptoms, medicines and doses, "am I infertile?"). Nothing he types is stored or sent to an outside AI service.
 - **Connected referral journey**: one pathway per check with eight stages (check, doctor review, clinic, appointment, specialist visit, visit summary, follow-up, re-check). The specialist records the visit outcome, tests ordered and the follow-up date; he sees it in his journey with a discreet follow-up calendar entry. A coordinator board shows where every man is and who has stalled, with a one-click private nudge.
+- **Clinic portal** (`/clinic.html`): the receiving specialist opens the referral with his handover code (no account), sees only what he shared, records attendance and the visit summary, and messages him. Tests the specialist ordered become a checklist in his journey that ticks itself off when he saves the results. After the visit, his companion's next steps follow the specialist's plan.
+- **Privacy switches**: one switch pauses all sharing (doctor, coordinator and clinic lose access at once; appointments stay booked), and he chooses how long his data is kept (until he deletes it, or 3–24 months after his last visit, then everything is erased).
+- **Get ready for your visit**: once he has a clinic, a checklist built from his own summary: results to bring, how to prepare for a semen analysis (WHO 2021) or a morning testosterone test (Endocrine Society 2018), questions worth asking about his own top drivers, and his choices at the visit.
+- **Automatic, discreet reminders**: one private message per stalled stage (and when his re-check is due), checked hourly. Never sent if he turned reminders off or paused sharing; the coordinator board shows who has been reminded.
+- **Second-opinion codes**: he picks exactly which parts of his record a code shows and for how long (1, 3 or 7 days). The doctor opens it on the clinic page, view only.
+- **Visit experience ratings**: three quick ratings after a visit (respect, privacy, explanation) plus "would you recommend". The programme dashboard shows averages per clinic only when 5 or more men have rated it.
+- **See exactly what they'll see**: before sharing, he previews the referral letter word for word as the doctor or clinic receives it (built by the same code that builds their view), and the preview updates live as he ticks boxes. He can add the questions he wants to ask; they go at the top of the letter.
+- **Your best changes (prescriptive)**: each change ranked by expected effect on his signals × strength of evidence ÷ effort, with a first step and when it shows; the best set of three is chosen together. **12-week projection (predictive)**: how his signals could move if he does nothing, follows the plan half the time, or fully; he switches changes on and off and the chart redraws. Signals only, never a chance of pregnancy.
+- **Dropout early warning**: coordinators see who may fall off the pathway before they stall, scored from published predictors of missed care, with every reason shown.
+- **Doctor feedback on findings**: clinicians agree or disagree with each explained finding (a reason is required to disagree); it is audited, shown to him in his access log, and aggregated to improve the explanations.
+- **Riaya-Net** (`docs/RIAYA_NET.md`): our own small neural network, pre-trained on our simulated cohort and fine-tuned on real data, exported to run on the phone. Evaluated honestly; clinician second opinion only.
+- **Guided tour**: a two-minute, auto-playing walk through a sample check with narration, spotlight and play/pause/skip, in Arabic and English.
+- **Measured scenario checks** (`validation/SCENARIOS.md`): red flags, unsupported companion claims, adversarial questions, consent and revocation, referral packages, all counted by running them.
 - **User-controlled sharing across the pathway**: he chooses, per recipient (Riaya review doctor, the clinic he picks), which parts of his record travel: answers, device data, lab results, plan. The summary always travels with a referral. Changes apply at once, including to handover codes already given. He sees every active share code, who opened his record (access log), and downloads consent receipts for every permission he gave or withdrew.
 
 ## Run it
@@ -36,13 +49,14 @@ A privacy-first, Arabic-first pre-screen that helps men in Abu Dhabi understand 
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/uvicorn app.main:app --app-dir backend --port 8000
 ```
-- User app: http://localhost:8000 · Clinician console: http://localhost:8000/clinician.html (demo login `clinician` / `demo-clinician`; set `RIAYA_CLINICIAN_PASSWORD` for anything real) · Evidence map: /graph.html · Clothing check: /fabric.html · WhatsApp demo: /whatsapp.html · Programme dashboard: /insights.html · API docs: /api/docs
+- User app: http://localhost:8000 · Clinician console: http://localhost:8000/clinician.html (demo login `clinician` / `demo-clinician`; set `RIAYA_CLINICIAN_PASSWORD` for anything real) · Evidence map: /graph.html · Clothing check: /fabric.html · WhatsApp demo: /whatsapp.html · Programme dashboard: /insights.html · Clinic portal (handover code): /clinic.html · API docs: /api/docs
 
 Settings (environment variables): `RIAYA_DATA_KEY` (Fernet key for encryption at rest; otherwise a key file is created in `data/`), `RIAYA_DB` (SQLite path), `RIAYA_CLINICIAN_PASSWORD`, `RIAYA_PUBLIC_URL` (used in WhatsApp links), `RIAYA_WHATSAPP_NUMBER` and `RIAYA_WHATSAPP_JOIN` (shown as a QR code), `RIAYA_TWILIO_AUTH_TOKEN` (checks Twilio webhook signatures), `RIAYA_VIDEO_BASE` (enables video rooms, e.g. a self-hosted Jitsi in the UAE), `RIAYA_UAE_HOSTED=1` (hides the demo banner).
 
 ```bash
 .venv/bin/python -m pytest -q backend/tests          # end-to-end API tests
 .venv/bin/python validation/run_validation.py         # writes validation/REPORT.md
+.venv/bin/python validation/scenario_checks.py        # writes validation/SCENARIOS.md (measured end-to-end checks)
 .venv/bin/python validation/run_validation.py --seed-demo   # also loads simulated cases into the console
 ```
 

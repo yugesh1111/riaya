@@ -21,7 +21,15 @@ def _norm(s):
 
 
 def _has(text, words):
-    return any(_norm(w) in text for w in words)
+    """Latin words must start a word ('cialis' is not in 'specialist'); Arabic matches inside words because of prefixes like ال."""
+    for w in words:
+        w = _norm(w)
+        if re.match(r"[a-z]", w):
+            if re.search(r"(?<![a-z])" + re.escape(w), text):
+                return True
+        elif w in text:
+            return True
+    return False
 
 
 URGENT_WORDS = ["sudden pain", "severe pain", "swollen", "swelling", "lump", "blood in", "bleeding", "kill myself", "suicide",
@@ -32,8 +40,11 @@ MED_WORDS = ["dose", "dosage", "mg", "clomid", "clomiphene", "hcg", "tamoxifen",
              "medicine", "medication", "viagra", "cialis", "جرعة", "حبوب", "دواء", "ادوية", "أدوية", "مكمل", "كلوميد", "ابر", "إبر",
              "كورس", "هل اخذ", "هل آخذ"]
 CHANCE_WORDS = ["infertile", "sterile", "can i have children", "can i have kids", "chance", "chances", "probability", "percent",
-                "%", "will i be able", "serious", "how bad", "dangerous", "عقيم", "عقم", "هل استطيع الانجاب", "هل أستطيع الإنجاب",
+                "%", "will i be able", "serious", "how bad", "dangerous", "diagnose", "diagnosis", "what do i have", "what's wrong with me",
+                "تشخيص", "شخصني", "شخّصني", "ما مرضي", "عقيم", "عقم", "هل استطيع الانجاب", "هل أستطيع الإنجاب",
                 "احتمال", "نسبة", "خطير", "فرص"]
+VISIT_WORDS = ["visit", "specialist said", "doctor said", "the doctor found", "what did", "after my appointment", "my appointment", "follow-up", "follow up",
+               "زيارة", "الزيارة", "قال الطبيب", "قال المختص", "ماذا وجد", "بعد الموعد", "موعدي", "المتابعة", "متابعة"]
 INTENTS = [
     ("why_next", ["why", "next step", "referral", "doctor", "see a", "specialist", "clinic", "لماذا", "ليش", "الخطوة", "احالة", "إحالة", "طبيب", "عيادة", "مختص"]),
     ("first", ["first", "start", "priority", "most important", "what should i do", "what can i do", "improve", "fix", "change",
@@ -125,19 +136,65 @@ def _card_for(text, cards, lang):
     return best
 
 
-def ask(question, answers, result, view, sharing_prefs, review_on, lang="en"):
+VISIT = {
+    "en": {"summary": "What your specialist recorded: {summary}", "tests": "Tests ordered: {tests}.", "tests_left": "Still to do: {left}.",
+           "tests_done": "All ordered tests are done. Bring the results to your follow-up.", "plan": "Plan: {plan}", "next": "Next: {next}.",
+           "fu": "Follow-up due {date}.", "src": "Your specialist's visit summary", "none": "No visit summary has been recorded yet. "
+           "After your specialist visit, the clinic sends it here and your next steps update.",
+           "ns_follow": "Follow your specialist's plan: {plan}", "ns_tests": "Do the tests your specialist ordered: {left}",
+           "ns_tests_why": "Save the results in Lab results and they are ticked off here, so nothing is repeated.",
+           "ns_fu": "Your follow-up is due {date}. Add it to your calendar from My journey.",
+           "ns_paused": "You've paused sharing, so your care team can't see your record right now. Turn sharing back on in Privacy when you're ready.",
+           "ns_spec_first": "Your specialist's advice comes first. The suggestions below are general and don't replace it."},
+    "ar": {"summary": "ما سجّله المختص: {summary}", "tests": "الفحوصات المطلوبة: {tests}.", "tests_left": "المتبقي: {left}.",
+           "tests_done": "أُنجزت كل الفحوصات المطلوبة. أحضر نتائجها إلى المتابعة.", "plan": "الخطة: {plan}", "next": "التالي: {next}.",
+           "fu": "موعد المتابعة {date}.", "src": "ملخص زيارة المختص", "none": "لم يُسجَّل ملخص زيارة بعد. بعد زيارة المختص ترسله العيادة إلى هنا وتتحدّث خطواتك التالية.",
+           "ns_follow": "اتبع خطة المختص: {plan}", "ns_tests": "أجرِ الفحوصات التي طلبها المختص: {left}",
+           "ns_tests_why": "احفظ النتائج في «نتائج المختبر» فتُعلَّم هنا تلقائياً ولا تُعاد.",
+           "ns_fu": "موعد متابعتك {date}. أضفه إلى التقويم من «مساري».",
+           "ns_paused": "أوقفت المشاركة مؤقتاً، لذا لا يستطيع فريق الرعاية رؤية سجلك الآن. أعد تشغيلها من «الخصوصية» متى كنت مستعداً.",
+           "ns_spec_first": "نصيحة المختص تأتي أولاً. الاقتراحات أدناه عامة ولا تحل محلها."},
+}
+
+
+def _date(ts):
+    import time as _t
+    return _t.strftime("%Y-%m-%d", _t.gmtime(ts))
+
+
+def _visit_answer(consult, L):
+    v = VISIT[L]
+    if not consult:
+        return v["none"]
+    parts = [v["summary"].format(summary=consult["summary"])]
+    if consult["tests"]:
+        parts.append(v["tests"].format(tests=", ".join(t["name"] for t in consult["tests"])))
+        left = [t["name"] for t in consult["tests"] if not t["done"]]
+        parts.append(v["tests_left"].format(left=", ".join(left)) if left else v["tests_done"])
+    if consult.get("plan"):
+        parts.append(v["plan"].format(plan=consult["plan"]))
+    parts.append(v["next"].format(next=consult["next_label"]))
+    if consult.get("followup_at") and not consult.get("followup_done_at"):
+        parts.append(v["fu"].format(date=_date(consult["followup_at"])))
+    return "\n".join(parts)
+
+
+def ask(question, answers, result, view, sharing_prefs, review_on, lang="en", consult=None):
     L = "ar" if lang == "ar" else "en"
     t = T[L]
     q = _norm(question)[:500]
     tr = result["triage"]
+    sugg = ([("What did the specialist find?" if L == "en" else "ماذا وجد المختص؟")] if consult else []) + t["suggest"]
     out = lambda kind, text, sources, safety="ok": {"intent": kind, "answer": text, "sources": sources, "safety": safety,
-                                                    "suggestions": t["suggest"][:4]}
+                                                    "suggestions": sugg[:4]}
     if _has(q, URGENT_WORDS):
         return out("urgent", t["urgent"], [{"label": t["src_safety"], "grade": None}], "urgent")
     if _has(q, MED_WORDS):
         return out("medicine", t["med"], [{"label": t["src_safety"], "grade": None}], "redirect")
     if _has(q, CHANCE_WORDS):
         return out("chance", t["chance"].format(tier=TIER[L][tr["tier"]]), [{"label": t["src_summary"], "grade": None}])
+    if _has(q, VISIT_WORDS) or (consult and _has(q, ["specialist", "found", "المختص", "وجد"])):
+        return out("visit", _visit_answer(consult, L), [{"label": VISIT[L]["src"], "grade": None}] if consult else [])
     cards = explain.cards(result, L)
     card = _card_for(q, cards, L)
     intent = next((name for name, words in INTENTS if _has(q, words)), None)
@@ -173,8 +230,8 @@ def ask(question, answers, result, view, sharing_prefs, review_on, lang="en"):
         return out("privacy", t["privacy"].format(doctor=t["privacy_doctor_on"] if review_on else t["privacy_doctor_off"],
                                                   clinic=t["privacy_clinic"].format(cats=cats)), [{"label": t["src_summary"], "grade": None}])
     if card:
-        return ask(card["label"], answers, result, view, sharing_prefs, review_on, lang)
-    return {"intent": "fallback", "answer": t["fallback"], "sources": [], "safety": "ok", "suggestions": t["suggest"]}
+        return ask(card["label"], answers, result, view, sharing_prefs, review_on, lang, consult)
+    return {"intent": "fallback", "answer": t["fallback"], "sources": [], "safety": "ok", "suggestions": sugg}
 
 
 NS = {
@@ -224,16 +281,27 @@ NET_EN_ACTION = {"emergency": "emergency department now", "emergency_mental": "c
                  "same_day_primary": "a doctor today"}
 
 
-def next_steps(result, view, ref_status, lang="en"):
-    """A ladder of safe next steps: now, this month, the next 3 months, things not to do, and when to get help sooner."""
+def next_steps(result, view, ref_status, lang="en", consult=None, paused=False):
+    """A ladder of safe next steps: now, this month, the next 3 months, things not to do, and when to get help sooner.
+    After a specialist visit, his specialist's plan, ordered tests and follow-up lead; general suggestions follow."""
     L = "ar" if lang == "ar" else "en"
-    t, tr, g = NS[L], result["triage"], graph()
+    t, tr, g, v = NS[L], result["triage"], graph(), VISIT[L]
     now, soon, later = [], [], []
+    if paused:
+        now.append({"text": v["ns_paused"], "why": None, "grade": None, "kind": "privacy"})
+    if consult:
+        if consult.get("plan"):
+            now.append({"text": v["ns_follow"].format(plan=consult["plan"]), "why": consult["summary"], "grade": None, "kind": "specialist"})
+        left = [x["name"] for x in consult["tests"] if not x["done"]]
+        if left:
+            now.append({"text": v["ns_tests"].format(left=", ".join(left)), "why": v["ns_tests_why"], "grade": None, "kind": "specialist"})
+        if consult.get("followup_at") and not consult.get("followup_done_at"):
+            now.append({"text": v["ns_fu"].format(date=_date(consult["followup_at"])), "why": None, "grade": None, "kind": "specialist"})
     if tr["level"] == "emergency":
         now.append({"text": t["now_emergency"], "why": tr["reasons"][0]["reason"] if tr["reasons"] else None, "grade": None, "kind": "urgent"})
     if "mental_health_urgent" in tr["parallel"]:
         now.append({"text": t["now_mental"], "why": None, "grade": None, "kind": "urgent"})
-    if tr["level"] not in ("self_care", "emergency"):
+    if tr["level"] not in ("self_care", "emergency") and not consult:
         if tr["requires_review"] and ref_status == "pending_review":
             now.append({"text": t["review"].format(h=tr.get("sla_hours") or 48), "why": None, "grade": None, "kind": "care"})
         soon.append({"text": t["visit"].format(msg=view["next_step"]), "why": t["visit_why"], "grade": None, "kind": "care"})
@@ -262,4 +330,5 @@ def next_steps(result, view, ref_status, lang="en"):
         if f["action"] in NET_EN_ACTION:
             net.append(NET_AR.get(f["id"], f["text"]) if L == "ar" else f"{f['text']}: {NET_EN_ACTION[f['action']]}")
     return {"now": now, "soon": soon, "later": later, "dont": dont, "safety_net": {"title": t["net_title"], "items": net},
+            "specialist_first": v["ns_spec_first"] if consult else None,
             "tier": tr["tier"], "level": tr["level"], "index_band": triage.tier_of(result["scores"]["subfertility"])}

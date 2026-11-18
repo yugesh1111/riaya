@@ -104,14 +104,18 @@ ACCESS_TEXT = {
            "lab_accepted": "A doctor checked a lab value", "lab_corrected": "A doctor corrected a lab value",
            "lab_rejected": "A doctor set aside a lab value", "voice_note_sent": "A doctor sent you a voice note",
            "appointment_confirm": "The coordinator confirmed your appointment", "appointment_decline": "A clinic declined the request",
-           "nudge_sent": "Your care team sent a reminder"},
+           "nudge_sent": "Your care team sent a reminder", "clinic_view": "The clinic opened your referral with your handover code",
+           "clinic_attendance": "The clinic recorded whether you attended", "clinic_message": "The clinic sent you a message",
+           "finding_agree": "A doctor agreed with a finding in your summary", "finding_disagree": "A doctor questioned a finding in your summary"},
     "ar": {"view_case": "فتح طبيب ملخصك", "open_share": "فتحت عيادة ملخصك برمز التسليم",
            "handover_generated": "أُعدّت رسالة إحالة للعيادة", "view_labs": "اطّلع طبيب على نتائج فحوصاتك",
            "review_approve": "وافق طبيب على خطوتك التالية", "review_modify": "غيّر طبيب خطوتك التالية",
            "review_reject": "راجع طبيب ملخصك", "message_sent": "أرسل لك طبيب رسالة", "video_created": "فتح طبيب غرفة مرئية",
            "consultation_recorded": "سجّل المختص زيارتك", "lab_accepted": "تحقق طبيب من قيمة مخبرية",
            "lab_corrected": "صحّح طبيب قيمة مخبرية", "lab_rejected": "استبعد طبيب قيمة مخبرية", "voice_note_sent": "أرسل لك طبيب رسالة صوتية",
-           "appointment_confirm": "أكّد المنسّق موعدك", "appointment_decline": "اعتذرت عيادة عن الطلب", "nudge_sent": "أرسل فريق الرعاية تذكيراً"},
+           "appointment_confirm": "أكّد المنسّق موعدك", "appointment_decline": "اعتذرت عيادة عن الطلب", "nudge_sent": "أرسل فريق الرعاية تذكيراً",
+           "clinic_view": "فتحت العيادة إحالتك برمز التسليم", "clinic_attendance": "سجّلت العيادة حضورك من عدمه", "clinic_message": "أرسلت لك العيادة رسالة",
+           "finding_agree": "وافق طبيب على نتيجة في ملخصك", "finding_disagree": "راجع طبيب نتيجة في ملخصك"},
 }
 
 
@@ -125,5 +129,51 @@ def access_log(c, user_id, lang="en"):
         return []
     q = ",".join("?" * len(targets))
     rows = c.execute(f"SELECT * FROM audit WHERE target IN ({q}) ORDER BY ts DESC LIMIT 200", targets).fetchall()
-    return [{"ts": r["ts"], "who": "clinician" if r["actor"] != "user" else "you", "action": r["action"],
+    return [{"ts": r["ts"], "who": "you" if r["actor"] == "user" else ("clinic" if r["actor"].startswith("clinic:") else "clinician"), "action": r["action"],
              "text": L.get(r["action"], r["action"].replace("_", " "))} for r in rows if r["action"] in L]
+
+
+# ------------------------------------------------------------------ one switch to pause all sharing, and how long data is kept
+RETENTION = [None, 3, 6, 12, 24]  # months after his last visit to the app; None = until he deletes it
+
+
+def privacy(c, user_id):
+    r = c.execute("SELECT sharing_paused, retention_months, last_active, reminders FROM users WHERE id=?", (user_id,)).fetchone()
+    last = r["last_active"] if r else None
+    months = r["retention_months"] if r else None
+    return {"paused": bool(r and r["sharing_paused"]), "reminders": bool(r is None or r["reminders"] is None or r["reminders"]),
+            "retention_months": months, "retention_options": RETENTION,
+            "delete_after": (last + months * 30 * 86400) if (last and months) else None}
+
+
+def set_privacy(c, user_id, paused=None, retention_months=-1, reminders=None):
+    old = privacy(c, user_id)
+    if reminders is not None and reminders != old["reminders"]:
+        c.execute("UPDATE users SET reminders=? WHERE id=?", (1 if reminders else 0, user_id))
+        receipt(c, user_id, "reminders", "granted" if reminders else "withdrawn")
+    if paused is not None and paused != old["paused"]:
+        c.execute("UPDATE users SET sharing_paused=? WHERE id=?", (1 if paused else 0, user_id))
+        receipt(c, user_id, "all_sharing", "paused" if paused else "resumed")
+    if retention_months != -1 and retention_months != old["retention_months"]:
+        if retention_months not in RETENTION:
+            raise ValueError("retention")
+        c.execute("UPDATE users SET retention_months=? WHERE id=?", (retention_months, user_id))
+        receipt(c, user_id, "retention", "changed", {"months": retention_months})
+    return privacy(c, user_id)
+
+
+def is_paused(c, user_id):
+    r = c.execute("SELECT sharing_paused FROM users WHERE id=?", (user_id,)).fetchone()
+    return bool(r and r["sharing_paused"])
+
+
+def expired_users(c, now):
+    return [r["id"] for r in c.execute("SELECT id FROM users WHERE retention_months IS NOT NULL AND last_active IS NOT NULL "
+                                       "AND last_active + retention_months * 30 * 86400 < ?", (now,)).fetchall()]
+
+
+def scope_of(c, share_row, user_id):
+    """What a code shows: the categories he picked for that code, or his clinic choices for a clinic code."""
+    if share_row["scope"]:
+        return sorted(set(json.loads(share_row["scope"])) & set(CATEGORIES) | REQUIRED, key=CATEGORIES.index)
+    return get(c, user_id)["clinic"]

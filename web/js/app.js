@@ -52,6 +52,54 @@ const LATTICE = `<svg class="lattice" viewBox="0 0 240 252" preserveAspectRatio=
     </g></pattern></defs>
   <rect width="240" height="252" fill="url(#mash)"/></svg>`;
 
+/* Privacy is the product: six mechanisms that exist in the code, each in one line. */
+function PRIVACY_BAND() {
+  const ar = LANG === "ar";
+  const I = {
+    mask: '<path d="M4 9c0-2 2-3 8-3s8 1 8 3-1 6-4 6c-2 0-2-2-4-2s-2 2-4 2c-3 0-4-4-4-6z"/>',
+    eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    pause: '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>',
+    log: '<path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/>',
+    lock: '<rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+    cal: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
+  };
+  const items = ar ? [
+    ["mask", "بلا اسم ولا رقم", "رمز مجهول بدلاً من حساب. لا نطلب هوية أو هاتفاً."],
+    ["eye", "أنت تختار من يرى ماذا", "لكل طبيب وعيادة على حدة، مع معاينة حرفية قبل المشاركة."],
+    ["pause", "إيقاف بلمسة واحدة", "أوقف كل المشاركة فتتوقف الرموز فوراً، وتبقى مواعيدك."],
+    ["log", "ترى كل اطلاع", "سجل بكل مرة فُتح فيها سجلك، وإيصال لكل إذن."],
+    ["lock", "مشفّر، ثم يُحذف", "تشفير أثناء التخزين، وحذف تلقائي في الموعد الذي تحدده."],
+    ["cal", "متحفظ افتراضياً", "التقويم يقول «موعد» فقط، والشاشة تُموَّه عند التبديل بين التطبيقات."],
+  ] : [
+    ["mask", "No name, no number", "An anonymous code instead of an account. We never ask who you are."],
+    ["eye", "You choose who sees what", "Per doctor and per clinic, previewed word for word before anything is shared."],
+    ["pause", "Withdraw in one tap", "Pause all sharing and every code stops working at once. Your appointments stay."],
+    ["log", "See every look", "An access log of each time your record is opened, and a receipt for every permission."],
+    ["lock", "Encrypted, then deleted", "Encrypted at rest, and erased automatically on the schedule you set."],
+    ["cal", "Discreet by default", "Your calendar just says \u201cAppointment\u201d. The screen blurs in the app switcher."],
+  ];
+  return `<section class="privacy-band"><div class="pb-head"><span class="eyebrow">${ar ? "الخصوصية" : "Privacy"}</span>
+      <h2>${ar ? "خاص بالتصميم، <em>لا بالوعود</em>." : "Private by design, <em>not by promise</em>."}</h2>
+      <p>${ar ? "كل ما يلي موجود في المنتج ويمكنك تجربته بنفسك." : "Every one of these is built into the product. You can try each yourself."}</p></div>
+    <div class="pb-grid">${items.map(([k, t2, d]) => `<div><svg viewBox="0 0 24 24" aria-hidden="true">${I[k]}</svg><b>${t2}</b><p>${d}</p></div>`).join("")}</div></section>`;
+}
+
+/* The product itself, on a phone: next step, a best change, and the care pathway. Illustrative sample. */
+function DEVICE() {
+  const ar = LANG === "ar";
+  return `<div class="float-note a"><b>${ar ? "يراجعه طبيب" : "A doctor checks it"}</b>${ar ? "كل إحالة يراجعها طبيب مرخّص" : "Every referral is approved by a licensed doctor"}</div>
+    <div class="device"><div class="glass"><div class="bar"><i></i></div><div class="in">
+      <span class="k">${ar ? "ملخصك الخاص" : "Your private summary"}</span>
+      <div class="next"><span style="opacity:.7;font-size:10px">${ar ? "خطوتك التالية" : "Your next step"}</span><b>${ar ? "زيارة مشتركة لعيادة الخصوبة مع زوجتك" : "A joint fertility visit, with your wife"}</b></div>
+      <div class="row2"><div class="tile"><span class="k">${ar ? "أفضل تغيير" : "Best change"}</span><div class="v">−9<small>%</small></div><div class="mini-bar"><i style="width:72%"></i></div><span style="font-size:9.5px">${ar ? "الإقلاع عن التدخين" : "Stop smoking"}</span></div>
+        <div class="tile"><span class="k">${ar ? "معاً" : "Together"}</span><div class="v">−48<small>%</small></div><div class="mini-bar"><i style="width:96%"></i></div><span style="font-size:9.5px">${ar ? "٣ تغييرات" : "3 changes"}</span></div></div>
+      <span class="k">${ar ? "مسارك" : "Your pathway"}</span>
+      <ol><li class="d">${ar ? "اكتمل الفحص" : "Check completed"}</li><li class="d">${ar ? "راجع الطبيب" : "Doctor reviewed"}</li><li class="c"><b>${ar ? "اختر عيادة" : "Choose a clinic"}</b></li>
+        <li class="u">${ar ? "الموعد" : "Appointment"}</li><li class="u">${ar ? "زيارة المختص" : "Specialist visit"}</li></ol>
+    </div></div></div>
+    <div class="float-note b"><b>${ar ? "خاص" : "Private"}</b>${ar ? "بلا اسم ولا رقم. أنت تختار من يرى ماذا." : "No name or number. You choose who sees what."}</div>`;
+}
+
 function welcome() {
   rerender = welcome;
   setWide(true);
@@ -59,33 +107,38 @@ function welcome() {
   document.body.classList.add("landing");
   view().innerHTML = `<div class="hero">
       <div>
+        <span class="eyebrow">${LANG === "ar" ? "صحة الرجل · أبوظبي" : "Men's health · Abu Dhabi"}</span>
         <h1>${t("hero")}</h1><p class="lead">${t("heroSub")}</p>
         <div class="paths">
           <a class="path primary" href="chat.html"><span><b>${t("talkT")}</b><span class="d">${t("talkS")}</span></span><span class="len">${t("talkTime")}</span></a>
           <button class="path" id="watch"><span><b>${t("watchT")}</b><span class="d">${t("watchS")}</span></span><span class="len">${t("watchTime")}</span></button>
           <button class="path" id="go"><span><b>${resumable ? t("resume") : t("formT")}</b><span class="d">${t("formS")}</span></span><span class="len">${t("formTime")}</span></button>
         </div>
-        <p class="sample-row"><button class="btn ghost" id="sample">${LANG === "ar" ? "شاهد فحصاً تجريبياً مكتملاً" : "See a sample check, filled in"}</button>
-          <span class="muted small">${LANG === "ar" ? "لرؤية كل خطوة بإجابات رجل تجريبي، دون إدخال أي بيانات." : "Every step with a sample man's answers, without typing anything."}</span></p>
+        <p class="sample-row"><button class="btn ghost" id="sample">${LANG === "ar" ? "▶ جولة في فحص تجريبي" : "▶ Take a guided tour of a sample check"}</button>
+          <span class="muted small">${LANG === "ar" ? "دقيقتان: كل خطوة بإجابات رجل تجريبي، دون إدخال أي بيانات." : "Two minutes: every step with a sample man's answers, without typing anything."}</span></p>
         ${resumable ? `<button class="chip" id="fresh">${t("restart")}</button>` : ""}
-        <p class="proof" id="proof"></p>
       </div>
-      <div class="screen">${LATTICE}
-        <div class="window"><div class="voice">${"<span></span>".repeat(7)}</div><b>${t("windowT")}</b><p>${t("windowS")}</p></div>
-      </div>
+      <div class="screen" aria-hidden="true">${LATTICE}${DEVICE()}</div>
     </div>
-    <div class="steps">
-      ${[1, 2, 3].map(i => `<div><span class="n">${LANG === "ar" ? "٠١٢٣"[i] : i}</span><b>${t("how" + i + "t")}</b><span class="muted">${t("how" + i)}</span></div>`).join("")}
+    <div class="figures" id="figures">${[["148", LANG === "ar" ? "رابطاً موثّقاً" : "cited cause-and-effect links"], ["95", LANG === "ar" ? "مصدراً منشوراً" : "published sources"],
+      ["2", LANG === "ar" ? "لغتان، بالصوت أو الكتابة" : "languages, by voice or text"], ["0", LANG === "ar" ? "اسم أو رقم هاتف مطلوب" : "names or phone numbers asked"]]
+      .map(([v, l]) => `<div><b>${LANG === "ar" ? v.replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]) : v}</b><span>${l}</span></div>`).join("")}</div>
+    ${PRIVACY_BAND()}
+    <div class="how"><h2 class="section">${LANG === "ar" ? "كيف تعمل" : "How it works"}</h2>
+      ${[1, 2, 3].map(i => `<div><span class="n">${LANG === "ar" ? "٠" + "١٢٣"[i - 1] : "0" + i}</span><b>${t("how" + i + "t")}</b><p>${t("how" + i)}</p></div>`).join("")}
     </div>
-    ${API.token ? "" : `<p class="small" style="margin-top:32px"><a href="#" id="restoreLink">${pv("restoreLink")}</a></p>`}
-    <p class="muted small" style="margin-top:48px">${t("alsoTry")}: <a href="whatsapp.html">${LANG === "ar" ? "رعاية على واتساب" : "Riaya on WhatsApp"}</a>, <a href="fabric.html">${t("fabricLink")}</a>, <a href="graph.html">${t("graphLink")}</a>, <a href="clinician.html">${LANG === "ar" ? "بوابة الأطباء" : "clinician console"}</a></p>`;
+    <footer class="foot"><span>© Riaya · ${LANG === "ar" ? "رعاية" : "رعاية"}</span>
+      <a href="whatsapp.html">${LANG === "ar" ? "رعاية على واتساب" : "Riaya on WhatsApp"}</a><a href="graph.html">${t("graphLink")}</a><a href="fabric.html">${t("fabricLink")}</a>
+      <span class="spacer"></span>${API.token ? "" : `<a href="#" id="restoreLink">${pv("restoreLink")}</a>`}<a href="clinic.html">${LANG === "ar" ? "للعيادات" : "For clinics"}</a>
+      <a href="clinician.html">${LANG === "ar" ? "بوابة الأطباء" : "Clinician console"}</a></footer>`;
   $("#go").onclick = () => { document.body.classList.remove("landing"); resumable ? intake() : consent(); };
   $("#watch").onclick = () => { document.body.classList.remove("landing"); passiveStart(); };
-  $("#sample").onclick = () => { document.body.classList.remove("landing"); startSample(); };
+  $("#sample").onclick = () => { document.body.classList.remove("landing"); window.Tour ? Tour.start() : startSample(); };
   if ($("#restoreLink")) $("#restoreLink").onclick = e => { e.preventDefault(); document.body.classList.remove("landing"); renderRestore(); };
   if ($("#fresh")) $("#fresh").onclick = () => { ["aid", "draft", "done"].forEach(store.del); S.answers = {}; S.aid = null; document.body.classList.remove("landing"); consent(); };
   API.get("/api/graph").then(g => {
-    $("#proof").innerHTML = t("proof")({ edges: g.edges.length, nodes: g.nodes.length, refs: Object.keys(g.references).length });
+    const f = $$("#figures b"), ar = v => LANG === "ar" ? String(v).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]) : v;
+    if (f.length) { f[0].textContent = ar(g.edges.length); f[1].textContent = ar(Object.keys(g.references).length); }
   }).catch(() => {});
 }
 
@@ -382,10 +435,31 @@ function renderResult() {
   const r = S.result;
   const urgent = r.immediate;
   const pathText = w => w ? `${w.labels.join(" → ")} ${gradeTag(w.grade)}` : "";
+  const TABS = LANG === "ar" ? { overview: "نظرة عامة", plan: "خطتك", why: "لماذا", ask: "اسأل", care: "الرعاية والمشاركة" }
+    : { overview: "Overview", plan: "Your plan", why: "Why", ask: "Ask", care: "Care & sharing" };
+  const tier = r.tier || "moderate", angle = { low: -60, moderate: 0, high: 60 }[tier];
+  const due = new Date(Date.now() + 90 * 86400000).toLocaleDateString(LANG === "ar" ? "ar-AE" : "en-GB", { day: "numeric", month: "short" });
   view().innerHTML = `
-    <h1>${t("resultTitle")}</h1>
+    <section class="sum-hero ${urgent ? "urgent" : ""}"><div>
+      <span class="eyebrow">${t("resultTitle")}</span>
+      <h1>${esc(r.next_step)}</h1><p class="sub">${esc(r.summary)}</p>
+      <div class="chips">${r.under_review ? `<span><i></i>${LANG === "ar" ? "يراجعه طبيب قبل الاعتماد" : "A doctor reviews it before it's final"}</span>` : `<span class="ok"><i></i>${LANG === "ar" ? "لا حاجة لمراجعة" : "No review needed"}</span>`}
+        <span class="ok"><i></i>${LANG === "ar" ? "خاص: بلا اسم أو رقم" : "Private: no name or number"}</span></div></div>
+      <div class="dial" role="img" aria-label="${esc(r.summary)}"><svg viewBox="0 0 220 128">
+        <path d="M20 110 A90 90 0 0 1 65 32" fill="none" stroke="color-mix(in srgb, var(--good) 55%, var(--line))" stroke-width="12" stroke-linecap="round"/>
+        <path d="M74 27 A90 90 0 0 1 146 27" fill="none" stroke="color-mix(in srgb, var(--saffron) 60%, var(--line))" stroke-width="12" stroke-linecap="round"/>
+        <path d="M155 32 A90 90 0 0 1 200 110" fill="none" stroke="color-mix(in srgb, var(--alert) 55%, var(--line))" stroke-width="12" stroke-linecap="round"/>
+        <g class="needle" style="transform:rotate(${angle}deg)"><line x1="110" y1="110" x2="110" y2="38" stroke="var(--ink)" stroke-width="2.5" stroke-linecap="round"/></g>
+        <circle cx="110" cy="110" r="7" fill="var(--ink)"/></svg>
+        <div class="w">${esc(t("tierWord")[tier] || tier)}</div><div class="s">${LANG === "ar" ? "مؤشرات، وليست تشخيصاً" : "signals, not a diagnosis"}</div></div>
+    </section>
+    <div class="facts" id="facts"><div><b id="fTogether">—</b><span>${LANG === "ar" ? "أفضل ٣ تغييرات معاً قد تخفض مؤشراتك" : "how far your best 3 changes could lower your signals"}</span></div>
+      <div><b>${r.plan.length ? esc(r.plan[0].label.split(" (")[0].split(" / ")[0]) : "—"}</b><span>${LANG === "ar" ? "أكبر عامل يمكنك تغييره" : "your biggest factor you can change"}</span></div>
+      <div><b>${esc(due)}</b><span>${LANG === "ar" ? "فحص المتابعة، بعد نحو ٣ أشهر" : "your re-check, in about 3 months"}</span></div></div>
+    <nav class="seg" role="tablist" aria-label="${t("resultTitle")}">${Object.entries(TABS).map(([k, v]) => `<button role="tab" data-tab="${k}" aria-selected="false">${v}</button>`).join("")}</nav>
+    <section class="panel" data-panel="overview">
     <div class="banner info small">${esc(r.disclaimer)}</div>
-    <div class="card next ${urgent ? "banner alert" : ""}"><div class="muted">${t("nextStep")}</div><h2>${esc(r.next_step)}</h2>
+    <div class="card next ${urgent ? "banner alert" : ""}" hidden><div class="muted">${t("nextStep")}</div><h2>${esc(r.next_step)}</h2>
       <div class="muted">${esc(r.summary)}</div>
       ${t("review")[r.clinician_review || (r.referral ? "queued" : "not_needed")] ? `<p class="small">${t("review")[r.clinician_review || "queued"]}</p>` : ""}
       ${r.referral && r.referral.status !== "pending_review" && r.referral.status !== "suggested" ? `<p class="small"><span class="tag">✓</span>${LANG === "ar" ? "راجع الطبيب ملخصك" : "A doctor has reviewed your summary"}</p>` : ""}
@@ -400,16 +474,19 @@ function renderResult() {
         <div class="row" style="flex-wrap:nowrap;margin-top:8px"><input type="text" id="msg" placeholder="${t("msgPh")}"><button class="btn" id="sendMsg">${t("send")}</button></div>`}
     </div>` : r.clinician_review === "available" ? `<div class="card"><p class="muted small">${t("reqReviewSub")}</p><button class="btn" id="reqRev">${t("reqReview")}</button></div>` : ""}
     ${r.genomic ? `<div class="card"><p class="small">${t("genomicNote")}</p></div>` : ""}
-    <div class="row" style="margin:-4px 0 8px"><button class="chip" id="readBtn">🔊 ${t("readAloud")}</button><button class="chip" id="jBtn2">${t("jOpen")}</button></div>
+    <div class="quiet-row"><button class="chip" id="readBtn">${t("readAloud")}</button><button class="chip" id="jBtn2">${t("jOpen")}</button></div>
     <div id="companion"></div>
-    <div id="explain"></div>
-    ${r.plan.length ? `<div class="card"><h2>${t("planTitle")}</h2><p class="muted small">${t("planSub")}</p>
-      ${r.plan.map(p => `<div class="plan-item"><b>${esc(p.action)}</b>
-        <details class="why"><summary>${t("whyThis")}</summary>${pathText(p.why)}</details></div>`).join("")}</div>` : ""}
     ${r.strengths.length ? `<div class="card"><h3>${t("strengths")}</h3>${r.strengths.map(s => `<span class="tag">${esc(s.label)}</span>`).join("")}</div>` : ""}
+    </section>
+    <section class="panel" data-panel="plan" hidden><div id="forecast"></div>
     ${r.more.length ? `<details class="card"><summary><b>${t("moreTitle")}</b></summary><ul>${r.more.map(p => `<li>${esc(p.action)}</li>`).join("")}</ul></details>` : ""}
     ${r.tests.length ? `<div class="card"><h3>${t("testsTitle")}</h3><ul>${r.tests.map(x => `<li>${esc(x)}</li>`).join("")}</ul>
       ${r.semen_notes.map(n => `<p class="muted small">${esc(n)}</p>`).join("")}</div>` : ""}
+    </section>
+    <section class="panel" data-panel="why" hidden><div id="explain"></div></section>
+    <section class="panel" data-panel="ask" hidden><div id="askHost"></div></section>
+    <section class="panel" data-panel="care" hidden>
+    <div id="sharePreviewSum"></div>
     <div class="grid2">
       <div class="card"><h3>${t("ifhasTitle")}</h3><p class="muted small">${t("ifhasSub")}</p><button class="btn ghost" id="fhir">${t("ifhasBtn")}</button></div>
       <div class="card"><h3>${t("shareTitle")}</h3><p class="muted small">${t("shareSub")}</p><div id="share"><button class="btn ghost" id="mk">${t("shareBtn")}</button></div></div>
@@ -417,12 +494,29 @@ function renderResult() {
     <div class="card"><h3>${t("partnerTitle")}</h3><p class="muted small">${t("partnerSub")}</p><div id="partner"><button class="btn ghost" id="mkP">${t("partnerBtn")}</button></div></div>
     <div class="card"><h3>${t("fbTitle")}</h3>${["fbTrust", "fbClarity", "fbComfort"].map(k => `<p class="small">${t(k)}</p><div class="stars" data-k="${k}">${[1, 2, 3, 4, 5].map(n => `<button data-n="${n}">${n}</button>`).join("")}</div>`).join("")}<p id="fbok" class="muted"></p></div>
     <div class="card"><h3>${t("delTitle")}</h3><p class="muted small">${t("delSub")}</p><button class="btn danger" id="del">${t("delBtn")}</button></div>
-    <p><button class="btn ghost" id="again">${t("restart")}</button></p>`;
+    <p><button class="btn ghost" id="again">${t("restart")}</button></p>
+    </section>`;
+  const tabs = $$(".seg [data-tab]");
+  window.showPanel = (k, focusTab) => {
+    S.tab = k;
+    tabs.forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === k)));
+    $$(".panel").forEach(p => { const on = p.dataset.panel === k; p.hidden = !on; if (on) { p.classList.remove("enter"); void p.offsetWidth; p.classList.add("enter"); } });
+    if (focusTab) $(`.seg [data-tab="${k}"]`).focus();
+  };
+  tabs.forEach((b, i) => {
+    b.onclick = () => { showPanel(b.dataset.tab); const top = $(".seg").getBoundingClientRect().top; if (top < 70) scrollTo({ top: scrollY + top - 140, behavior: "smooth" }); };
+    b.onkeydown = e => {
+      const dir = (e.key === "ArrowRight") !== (LANG === "ar") ? 1 : e.key === "ArrowLeft" || e.key === "ArrowRight" ? -1 : 0;
+      if (dir) { e.preventDefault(); showPanel(tabs[(i + dir + tabs.length) % tabs.length].dataset.tab, true); }
+    };
+  });
+  showPanel(S.tab && $(`.panel[data-panel="${S.tab}"]`) ? S.tab : "overview");
   $("#readBtn").onclick = () => window.Voice ? Voice.speak([r.summary, r.next_step, ...r.plan.map(p => p.action)].join(". "), { lang: LANG })
     : speechSynthesis.speak(Object.assign(new SpeechSynthesisUtterance([r.summary, r.next_step].join(". ")), { lang: LANG === "ar" ? "ar-AE" : "en-GB" }));
   $("#jBtn2").onclick = () => renderJourney();
   loadExplain();
   if (window.loadCompanion) loadCompanion().catch(() => {});
+  if (window.renderSharePreview) renderSharePreview($("#sharePreviewSum"), S.aid, "clinic").catch(() => {});
   $("#fhir").onclick = async () => {
     const b = await API.get(`/api/assessments/${S.aid}/ifhas`);
     const a = document.createElement("a");
@@ -492,8 +586,8 @@ async function loadExplain() {
         </div></details>`).join("")}
     </div>
     <div class="card"><h3>${t("covTitle")}</h3><div style="display:grid;grid-template-columns:1fr auto;gap:6px 16px" class="small">
-      ${e.coverage.map(c => `<span>${esc(c.label)}</span><span style="color:${covColor(c.status)}">${esc(c.status_text)}</span>`).join("")}</div></div>
-    <div class="card" id="wi"><h2>${t("wiTitle")}</h2><p class="muted small">${t("wiSub")}</p><div class="opts" id="wiOpts"></div><div id="wiOut" style="margin-top:16px"></div></div>`;
+      ${e.coverage.map(c => `<span>${esc(c.label)}</span><span style="color:${covColor(c.status)}">${esc(c.status_text)}</span>`).join("")}</div></div>`;
+  if (!$("#wiOpts")) return;  // "Your best changes" (plan tab) now does the what-if, with ranking and a 12-week projection
   const base = await API.post(`/api/assessments/${S.aid}/whatif?lang=${LANG}`, { improve: [] });
   const picked = new Set();
   $("#wiOpts").innerHTML = base.options.map(o => `<span class="opt" data-n="${o.node}">${esc(o.label)}</span>`).join("");
@@ -517,6 +611,7 @@ async function renderJourney() {
   const j = await API.get(`/api/me/journey?lang=${LANG}`);
   const d = ts => new Date(ts * 1000).toLocaleDateString(LANG === "ar" ? "ar-AE" : "en-GB", { day: "numeric", month: "short", year: "numeric" });
   view().innerHTML = `<h1>${t("jTitle")}</h1>
+    ${j.sharing_paused && window.cp ? `<div class="banner small" style="border-inline-start:4px solid var(--saffron)">${cp("pausedBanner")}</div>` : ""}
     <p class="row"><button class="btn ghost" id="jLabs">${lx("openLabs")}</button><button class="btn ghost" id="jPlan">${lx("openPlan")}</button></p>
     ${j.recheck_due ? `<p class="lead">${t("jRecheck")(d(j.recheck_due))}</p><p><button class="btn" id="follow">${t("jFollow")}</button></p>` : `<p>${t("none")}</p>`}
     ${j.checks.map((c, i) => `<div class="card" style="${i === 0 ? "border-inline-start:4px solid var(--saffron)" : ""}">
@@ -527,7 +622,7 @@ async function renderJourney() {
       ${window.pathwayHTML && c.pathway ? pathwayHTML(c) : `<h3>${LANG === "ar" ? "المسار" : "Timeline"}</h3>
       <ol class="small" style="padding-inline-start:18px">${c.steps.map(s => `<li>${t("jSteps")[s.step] || s.step}${s.at ? ` <span class="muted">${d(s.at)}</span>` : ""}${s.barrier ? ` (${t("barrier")[s.barrier] || s.barrier})` : ""}</li>`).join("")}</ol>`}
       ${window.consultHTML ? consultHTML(c.consultation, c.id) : ""}
-      ${c.referral_status && c.level !== "self_care" ? `<p><button class="btn" data-care="${c.id}">${c.referral_status === "booked" ? cc("see") : cc("open")}</button></p>` : ""}
+      ${c.referral_status && c.level !== "self_care" ? `<p><button class="btn" data-care="${c.id}">${["booked", "attended", "tests_done", "followed_up"].includes(c.referral_status) ? cc("see") : cc("open")}</button></p>` : ""}
       ${c.referral_status && !["attended", "tests_done", "followed_up", "declined"].includes(c.referral_status) ? `<div class="row" data-aid="${c.id}">
         <button class="chip" data-p="booked">${t("jBooked")}</button><button class="chip" data-p="attended">${t("jWent")}</button><button class="chip" data-p="tests_done">${t("jTests")}</button>
         <button class="chip" data-p="declined">${t("jCouldnt")}</button></div>` : ""}
@@ -682,15 +777,15 @@ async function renderCare(aid) {
   else if (s.stage === "emergency") body = `<div class="card" style="border-inline-start:4px solid var(--danger,#b3261e)"><p><b>${cc("emergency")}</b></p></div>`;
   else if (s.stage === "not_needed" || s.stage === "no_referral") body = `<div class="card"><p>${cc("notNeeded")}</p></div>`;
   else if (s.stage === "requested") body = `<div class="card"><p>${esc(cc("requested")(a.provider.name))}</p>
-      ${a.share_code ? `<p class="small">${cc("code")}</p><div class="code" dir="ltr">${esc(a.share_code)}</div>` : ""}
-      <p><button class="btn ghost" id="ccCancel">${cc("cancel")}</button></p></div>`;
+      ${a.share_code ? `<p class="small">${cc("code")}</p><div class="code" dir="ltr">${esc(a.share_code)}</div>${window.cp ? `<p class="small muted">${cp("clinicHow")(location.origin + "/clinic.html")}</p>` : ""}` : ""}
+      <p><button class="btn ghost" id="ccCancel">${cc("cancel")}</button></p></div><div id="prep"></div>`;
   else if (s.stage === "confirmed") body = `<div class="card" style="border-inline-start:4px solid var(--saffron)"><h2>${cc("confirmedT")}</h2>
       <p style="font-size:1.15em"><b>${esc(dt(a.slot_at))}</b></p><p>${esc(a.provider.name)}${a.place_note ? `<br><span class="muted">${esc(a.place_note)}</span>` : ""}</p>
-      ${a.share_code ? `<p class="small">${cc("code")}: <span class="code" dir="ltr">${esc(a.share_code)}</span></p>` : ""}
+      ${a.share_code ? `<p class="small">${cc("code")}: <span class="code" dir="ltr">${esc(a.share_code)}</span></p>${window.cp ? `<p class="small muted">${cp("clinicHow")(location.origin + "/clinic.html")}</p>` : ""}` : ""}
       <p class="row"><button class="btn" id="ccCal">${cc("cal")}</button><span class="muted small">${cc("calNote")}</span></p>
       <div class="row" id="ccOut"><button class="chip" data-o="attended">${cc("went")}</button><button class="chip" data-o="missed">${cc("missed")}</button>
-      <button class="chip" id="ccCancel">${cc("cancelAppt")}</button></div></div>`;
-  else if (s.stage === "attended") body = `<div class="card"><p>${cc("attended")}</p><p class="muted small">${esc(a.provider.name)}</p></div>${window.consultHTML ? consultHTML(s.consultation, aid) : ""}`;
+      <button class="chip" id="ccCancel">${cc("cancelAppt")}</button></div></div><div id="prep"></div>`;
+  else if (s.stage === "attended") body = `<div class="card"><p>${cc("attended")}</p><p class="muted small">${esc(a.provider.name)}</p></div>${window.consultHTML ? consultHTML(s.consultation, aid) : ""}<div id="vfb"></div>`;
   else {
     const chip = (g, v) => `<span class="opt" data-g="${g}" data-v="${v}">${cc(v)}</span>`;
     body = `<h2>${cc("pick")}</h2><p class="muted small">${cc("pickSub")}</p>
@@ -710,6 +805,8 @@ async function renderCare(aid) {
   view().innerHTML = `<h1>${cc("title")}</h1>${body}${back}`;
   $("#ccBack").onclick = () => renderJourney();
   if (window.wireConsult) wireConsult(view(), () => renderCare(aid));
+  if (window.loadPrep) loadPrep(aid).catch(() => {});
+  if (window.loadVisitFeedback) loadVisitFeedback(aid).catch(() => {});
   if ($("#ccCancel")) $("#ccCancel").onclick = async () => { if (!confirm(cc("cancelConfirm"))) return; await API.del(`/api/assessments/${aid}/appointment`); renderCare(aid); };
   if ($("#ccCal")) $("#ccCal").onclick = async () => {
     const r = await fetch(`/api/assessments/${aid}/appointment.ics`, { headers: { Authorization: `Bearer ${API.token}` } });

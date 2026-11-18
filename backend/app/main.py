@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import (assessment, care, companion, conversation, db, explain, fabric, guide, handover, ifhas, insights, labreport,
+from . import (prescribe, visit, assessment, care, companion, conversation, db, explain, fabric, guide, handover, ifhas, insights, labreport,
                labs, labtimeline, pathway, questionnaire, security, semen, sharing, wearables)
 from .knowledge import graph
 
@@ -41,6 +41,8 @@ def startup():
             salt, h = security.hash_password(pw)
             c.execute("INSERT INTO clinicians VALUES (?,?,?,?)", (user, salt, h, "Duty clinician"))
         care.seed(c)
+    purge_expired()
+    run_reminders()
 
 
 @asynccontextmanager
@@ -72,7 +74,33 @@ def current_user(authorization: str = Header(None)):
         row = c.execute("SELECT id FROM users WHERE token_hash=?", (security.token_hash(authorization[7:]),)).fetchone()
     if not row:
         raise HTTPException(401, "Unknown token")
+    _touch(row["id"])
     return row["id"]
+
+
+_last_purge = [0.0]
+
+
+def _touch(user_id):
+    """Records that he used the app (at most hourly), so 'delete after N months' counts from his last visit."""
+    now = time.time()
+    with db.tx() as c:
+        c.execute("UPDATE users SET last_active=? WHERE id=? AND (last_active IS NULL OR last_active<?)", (now, user_id, now - 3600))
+    if now - _last_purge[0] > 3600:
+        _last_purge[0] = now
+        purge_expired()
+        run_reminders()
+
+
+def purge_expired():
+    """Erases everyone whose own retention period has passed since his last visit."""
+    with db.tx() as c:
+        ids = sharing.expired_users(c, time.time())
+    for u in ids:
+        erase_user(u)
+    if ids:
+        db.audit("system", "retention_erased", str(len(ids)))
+    return len(ids)
 
 
 def current_clinician(authorization: str = Header(None)):
@@ -156,9 +184,10 @@ def get_questionnaire():
 
 @app.get("/api/model-card")
 def model_card():
-    from . import ml, synth
+    from . import ml, riayanet, synth
     meta = synth.load()["meta"]
     return {"evidence_engine": {"nodes": len(graph().nodes), "edges": len(graph().edges), "references": len(graph().refs)},
+            "riaya_net": {k: v for k, v in riayanet.model().items() if k not in ("weights", "biases", "mean", "scale", "fill")},
             "simulated_gbm": meta, "uci_logistic": {"model": "Logistic regression", "data": "UCI Fertility (n=100)",
                                                     "coefficients": dict(zip(ml.model()["features"], ml.model()["coef"]))}}
 
@@ -190,7 +219,7 @@ def new_session(body: SessionIn):
     """No name, phone, email or Emirates ID. The token lives only on the man's device."""
     token, uid = security.new_token(), str(uuid.uuid4())
     with db.tx() as c:
-        c.execute("INSERT INTO users VALUES (?,?,?,?)", (uid, security.token_hash(token), time.time(), body.lang))
+        c.execute("INSERT INTO users (id, token_hash, created_at, lang) VALUES (?,?,?,?)", (uid, security.token_hash(token), time.time(), body.lang))
     return {"token": token}
 
 
@@ -466,16 +495,30 @@ def ifhas_export(aid: str, user=Depends(current_user)):
                         headers={"Content-Disposition": "attachment; filename=prescreen-summary.fhir.json"})
 
 
+class ShareIn(BaseModel):
+    categories: Optional[list[str]] = None
+    hours: int = Field(SHARE_HOURS, ge=1, le=168)
+    purpose: str = Field("clinic", pattern="^(clinic|second_opinion)$")
+
+
 @app.post("/api/assessments/{aid}/share")
-def create_share(aid: str, user=Depends(current_user)):
+def create_share(aid: str, body: Optional[ShareIn] = None, user=Depends(current_user)):
+    """A one-time code. He can pick exactly what this code shows and for how long, e.g. a second opinion for 24 hours."""
     own_assessment(aid, user)
+    body = body or ShareIn()
+    if body.hours not in (24, 72, 168):
+        raise HTTPException(400, "Choose 1, 3 or 7 days")
     code = security.share_code()
     now = time.time()
+    scope = sorted(set(body.categories) & set(sharing.CATEGORIES) | sharing.REQUIRED, key=sharing.CATEGORIES.index) if body.categories is not None else None
     with db.tx() as c:
-        c.execute("INSERT INTO shares VALUES (?,?,?,?,0,NULL)", (code, aid, now, now + SHARE_HOURS * 3600))
-        sharing.receipt(c, user, "share_code", "granted", {"code": code, "hours": SHARE_HOURS, "categories": sharing.get(c, user)["clinic"]})
-    db.event(aid, "share_created")
-    return {"code": code, "expires_in_hours": SHARE_HOURS}
+        c.execute("INSERT INTO shares (code, assessment_id, created_at, expires_at, revoked, used_by, scope, purpose) VALUES (?,?,?,?,0,NULL,?,?)",
+                  (code, aid, now, now + body.hours * 3600, json.dumps(scope) if scope else None, body.purpose))
+        sharing.receipt(c, user, "share_code", "granted", {"code": code, "hours": body.hours, "purpose": body.purpose,
+                                                          "categories": scope or sharing.get(c, user)["clinic"]})
+    db.event(aid, "share_created", body.purpose)
+    return {"code": code, "expires_in_hours": body.hours, "categories": scope, "purpose": body.purpose,
+            "link": f"/clinic.html#code={code}"}
 
 
 @app.delete("/api/shares/{code}")
@@ -738,7 +781,8 @@ def request_appointment(aid: str, body: RequestIn, lang: str = "en", user=Depend
         code, now = None, time.time()
         if body.share_summary:
             code = security.share_code()
-            c.execute("INSERT INTO shares VALUES (?,?,?,?,0,NULL)", (code, aid, now, now + care.SHARE_DAYS * 86400))
+            c.execute("INSERT INTO shares (code, assessment_id, created_at, expires_at, revoked, used_by) VALUES (?,?,?,?,0,NULL)",
+                      (code, aid, now, now + care.SHARE_DAYS * 86400))
             sharing.receipt(c, user, "clinic", "granted", {"clinic": body.provider_id, "code": code, "days": care.SHARE_DAYS,
                                                           "categories": sharing.get(c, user)["clinic"]})
         prefs = {"times": [t for t in body.times if t in ("morning", "afternoon", "evening")],
@@ -894,8 +938,9 @@ def journey(lang: str = "en", user=Depends(current_user)):
             appt = c.execute("SELECT * FROM appointments WHERE assessment_id=? AND status!='cancelled' ORDER BY created_at DESC LIMIT 1",
                              (row["id"],)).fetchone()
             con = _consultation(c, row["id"])
+            con_view = _consult_view(con, L, c) if con else None
         stg, cur = pathway.stages(row, ref, appt, con, _final_level(row, ref), L)
-        checks.append({"pathway": stg, "current_stage": cur, "consultation": _consult_view(con, L) if con else None,
+        checks.append({"pathway": stg, "current_stage": cur, "consultation": con_view,
                        "id": row["id"], "completed_at": row["completed_at"], "tier": row["tier"], "level": _final_level(row, ref),
                        "next_step": v["next_step"], "summary": v["summary"],
                        "discuss": [lab(k) for k, x in list(result["attribution"].items())[:3] if x > 0],
@@ -903,7 +948,9 @@ def journey(lang: str = "en", user=Depends(current_user)):
                        "tests_have": _tests_have(result), "referral_status": ref["status"] if ref else None,
                        "steps": _steps(row, ref), "changes": changes})
     checks.reverse()
-    return {"checks": checks, "recheck_due": rows[0]["completed_at"] + RECHECK_DAYS * 86400 if rows else None, "barriers": care.BARRIERS}
+    with db.tx() as c:
+        paused = sharing.is_paused(c, user)
+    return {"sharing_paused": paused, "checks": checks, "recheck_due": rows[0]["completed_at"] + RECHECK_DAYS * 86400 if rows else None, "barriers": care.BARRIERS}
 
 
 # ------------------------------------------------------------------ recovery code
@@ -961,7 +1008,8 @@ def export_me(user=Depends(current_user)):
         msgs = {r["id"]: _messages(c, r["id"]) for r in rows}
         appt_views = [care.appt_view(c, a) for a in appts]
         share_prefs, receipts = sharing.get(c, user), sharing.receipts(c, user)
-        consults = [_consult_view(x, "en") for r in rows if (x := _consultation(c, r["id"]))]
+        consults = [_consult_view(x, "en", c) for r in rows if (x := _consultation(c, r["id"]))]
+        priv = sharing.privacy(c, user)
     all_consents = {}
     with db.tx() as c:
         for r in c.execute("SELECT purpose, granted FROM consents WHERE user_id=? ORDER BY ts", (user,)).fetchall():
@@ -972,7 +1020,8 @@ def export_me(user=Depends(current_user)):
                              "test_result": security.unseal(r["semen"]), "blood_tests": security.unseal(r["labs"]),
                              "result": security.unseal(r["result"]), "messages": msgs[r["id"]]} for r in rows],
             "lab_results": labtimeline.series(pts, "en"), "plans": [_plan_view(p, "en") for p in plans], "appointments": appt_views,
-            "sharing": share_prefs, "consent_receipts": receipts, "consultations": consults}
+            "sharing": share_prefs, "privacy": {"sharing_paused": priv["paused"], "retention_months": priv["retention_months"]},
+            "consent_receipts": receipts, "consultations": consults}
 
 
 def erase_user(user):
@@ -982,6 +1031,10 @@ def erase_user(user):
         for aid in ids:
             for t in ("referrals", "shares", "feedback", "messages", "partner_links", "appointments", "consultations"):
                 c.execute(f"DELETE FROM {t} WHERE assessment_id=?", (aid,))
+            c.execute("DELETE FROM clinic_access WHERE assessment_id=?", (aid,))
+            c.execute("DELETE FROM visit_feedback WHERE assessment_id=?", (aid,))
+            c.execute("DELETE FROM visit_questions WHERE assessment_id=?", (aid,))
+            c.execute("DELETE FROM finding_reviews WHERE assessment_id=?", (aid,))
             c.execute("UPDATE events SET assessment_id=NULL WHERE assessment_id=?", (aid,))
         for t in ("assessments", "consents", "lab_results", "plans", "recovery", "sharing", "consent_receipts"):
             c.execute(f"DELETE FROM {t} WHERE user_id=?", (user,))
@@ -1223,11 +1276,12 @@ def queue(clin=Depends(current_clinician)):
     """Only cases where the man consented to clinician review (or shared a code) are visible."""
     with db.tx() as c:
         rows = c.execute("""SELECT a.*, r.status, r.final_level, r.rapid, r.due_at FROM assessments a JOIN referrals r ON r.assessment_id=a.id
-                            WHERE a.review_consent=1 AND r.status='pending_review'
+                            WHERE a.review_consent=1 AND r.status='pending_review' AND a.user_id NOT IN (SELECT id FROM users WHERE sharing_paused=1)
                             ORDER BY r.rapid DESC, COALESCE(r.due_at, 9e18), CASE a.level WHEN 'emergency' THEN 0 WHEN 'urgent_specialist' THEN 1
                                      WHEN 'same_day_primary' THEN 2 WHEN 'andrology' THEN 3 ELSE 4 END, a.completed_at""").fetchall()
         recent = c.execute("""SELECT a.*, r.status, r.final_level, r.rapid, r.due_at FROM assessments a
                               JOIN referrals r ON r.assessment_id=a.id WHERE a.review_consent=1 AND r.status NOT IN ('pending_review','suggested')
+                              AND a.user_id NOT IN (SELECT id FROM users WHERE sharing_paused=1)
                               ORDER BY r.reviewed_at DESC LIMIT 30""").fetchall()
         unread = {r[0]: r[1] for r in c.execute("SELECT assessment_id, COUNT(*) FROM messages WHERE sender='user' AND read_at IS NULL GROUP BY assessment_id")}
     db.audit(clin, "view_queue")
@@ -1239,7 +1293,7 @@ def queue(clin=Depends(current_clinician)):
 
 def _clinician_can_see(c, aid):
     row = c.execute("SELECT * FROM assessments WHERE id=?", (aid,)).fetchone()
-    if not row:
+    if not row or sharing.is_paused(c, row["user_id"]):
         return None
     if row["review_consent"]:
         return row
@@ -1256,9 +1310,11 @@ def _visible(c, aid):
 
 
 def _with_models(result, answers):
-    if result and "models" not in result:
+    if result and ("models" not in result or "riaya_net" not in result["models"]):
         from . import ml, synth
-        result["models"] = {"uci_logistic": ml.predict(answers), "simulated_gbm": synth.explain(answers, result["instruments"], result.get("wearable"))}
+        from . import riayanet
+        result["models"] = {"uci_logistic": ml.predict(answers), "simulated_gbm": synth.explain(answers, result["instruments"], result.get("wearable")),
+                            "riaya_net": riayanet.predict(answers, result["instruments"], result.get("wearable"))}
     return result
 
 
@@ -1275,10 +1331,11 @@ def case(aid: str, clin=Depends(current_clinician)):
         mode = sharing.access_mode(c, row, clin)
         allowed = sharing.get(c, row["user_id"])[mode]
         con = _consultation(c, aid)
+        con_view = _consult_view(con, "en", c) if con else None
     answers, result, withheld = sharing.filter_case(answers, result, allowed)
     g = graph()
     return {"id": aid, "answers": answers, "result": result, "access": mode, "withheld": withheld,
-            "consultation": _consult_view(con, "en") if con else None,
+            "consultation": con_view,
             "referral": {k: ref[k] for k in ref.keys() if k != "note"} if ref else None,
             "review_note": security.unseal(ref["note"]) if ref and ref["note"] else None,
             "paths": {n: g.paths(n)[:3] for n in list((result or {}).get("attribution", {}))[:5]},
@@ -1410,6 +1467,31 @@ def start_video(aid: str, clin=Depends(current_clinician)):
     return {"url": url}
 
 
+def _questions(c, aid):
+    r = c.execute("SELECT body FROM visit_questions WHERE assessment_id=?", (aid,)).fetchone()
+    return (security.unseal(r["body"]) or []) if r else []
+
+
+def _package(c, row, allowed, reviewer=None):
+    """The referral package exactly as a recipient with `allowed` categories sees it: his summary, the parts he chose to share,
+    results he saved later (so tests aren't repeated) and the questions he wants to discuss."""
+    ref = _referral(c, row["id"])
+    answers, result, withheld = sharing.filter_case(security.unseal(row["answers"]) or {}, security.unseal(row["result"]), allowed)
+    out = handover.build(answers, result, {k: ref[k] for k in ref.keys() if k != "note"} if ref else None, reviewer)
+    labs = labtimeline.series(_lab_points(c, "user_id=?", (row["user_id"],), "en"), "en") if "labs" in allowed else None
+    if labs:
+        extra = [f"{x['name']}: {x['latest']['value']} {x['unit'] or ''}".strip() + (f" ({x['latest']['date']})" if x["latest"]["date"] else "")
+                 + " (from his lab report)" for x in labs if x["latest"]]
+        for sec in out["letter"]["sections"]:
+            if sec["title"] == "Results already available":
+                sec["lines"] = [l for l in sec["lines"] if l != "No prior results."] + extra
+    qs = _questions(c, row["id"])
+    if qs:
+        out["letter"]["sections"].insert(1, {"title": "Questions he wants to discuss", "lines": qs})
+    out["withheld"], out["allowed"], out["labs"], out["questions"] = withheld, allowed, labs, qs
+    return out, result, ref
+
+
 @app.get("/api/clinician/cases/{aid}/handover")
 def get_handover(aid: str, clin=Depends(current_clinician)):
     with db.tx() as c:
@@ -1417,10 +1499,10 @@ def get_handover(aid: str, clin=Depends(current_clinician)):
         ref = _referral(c, aid)
         if ref:
             c.execute("UPDATE referrals SET handover_at=? WHERE id=?", (time.time(), ref["id"]))
-    out = handover.build(security.unseal(row["answers"]) or {}, security.unseal(row["result"]),
-                         {k: ref[k] for k in ref.keys() if k != "note"} if ref else None, clin)
+        allowed = sharing.get(c, row["user_id"])[sharing.access_mode(c, row, clin)]
+        out, _, _ = _package(c, row, allowed, clin)
     db.audit(clin, "handover_generated", aid)
-    return out
+    return {"bundle": out["bundle"], "letter": out["letter"], "withheld": out["withheld"]}
 
 
 @app.get("/api/clinician/cases/{aid}/labs")
@@ -1713,7 +1795,11 @@ def next_steps(aid: str, lang: str = "en", user=Depends(current_user)):
     row, result = completed(aid, user)
     with db.tx() as c:
         ref = _referral(c, aid)
-    return guide.next_steps(result, assessment.user_view(result, lang_of(lang)), ref["status"] if ref else None, lang_of(lang))
+        con = _consultation(c, aid)
+        con_view = _consult_view(con, lang_of(lang), c) if con else None
+        paused = sharing.is_paused(c, user)
+    return guide.next_steps(result, assessment.user_view(result, lang_of(lang)), ref["status"] if ref else None, lang_of(lang),
+                            consult=con_view, paused=paused)
 
 
 class AskIn(BaseModel):
@@ -1726,8 +1812,10 @@ def ask(aid: str, body: AskIn, lang: str = "en", user=Depends(current_user)):
     row, result = completed(aid, user)
     with db.tx() as c:
         prefs = sharing.get(c, user)
+        con = _consultation(c, aid)
+        con_view = _consult_view(con, lang_of(lang), c) if con else None
     out = guide.ask(body.question, security.unseal(row["answers"]) or {}, result, assessment.user_view(result, lang_of(lang)),
-                    prefs, consents(user)["clinician_review"] or bool(row["review_consent"]), lang_of(lang))
+                    prefs, consents(user)["clinician_review"] or bool(row["review_consent"]), lang_of(lang), consult=con_view)
     db.event(aid, "companion_question", out["intent"])  # the intent only, never the words
     return out
 
@@ -1740,9 +1828,11 @@ def get_sharing(lang: str = "en", user=Depends(current_user)):
         prefs = sharing.get(c, user)
         partner = c.execute("SELECT COUNT(*) FROM partner_links p JOIN assessments a ON a.id=p.assessment_id "
                             "WHERE a.user_id=? AND p.revoked=0 AND p.expires_at>?", (user, time.time())).fetchone()[0]
-        codes = [dict(r) for r in c.execute("SELECT s.code, s.created_at, s.expires_at, s.used_by IS NOT NULL used FROM shares s JOIN assessments a "
+        codes = [dict(r) for r in c.execute("SELECT s.code, s.created_at, s.expires_at, s.used_by IS NOT NULL used, s.scope, s.purpose FROM shares s JOIN assessments a "
                                             "ON a.id=s.assessment_id WHERE a.user_id=? AND s.revoked=0 AND s.expires_at>? ORDER BY s.created_at DESC",
                                             (user, time.time())).fetchall()]
+    for x in codes:
+        x["scope"] = json.loads(x["scope"]) if x["scope"] else prefs["clinic"]
     return {"prefs": prefs, "categories": [{"key": k, "label": sharing.LABELS[L][k], "required": k in sharing.REQUIRED} for k in sharing.CATEGORIES],
             "recipients": [{"key": k, "label": sharing.LABELS[L][k]} for k in sharing.RECIPIENTS],
             "consents": consents(user), "partner_links": partner, "active_codes": codes}
@@ -1788,12 +1878,59 @@ def _consultation(c, aid):
     return c.execute("SELECT * FROM consultations WHERE assessment_id=? ORDER BY created_at DESC LIMIT 1", (aid,)).fetchone()
 
 
-def _consult_view(r, lang="en"):
+# words in an ordered test -> the lab fields that show it is done, when he saves results after the visit
+TEST_FIELDS = [(("semen", "sperm", "سائل", "منوي", "حيوانات"), {"concentration_m_per_ml", "total_count_m", "progressive_motility_pct", "volume_ml"}),
+               (("testosterone", "تستوستيرون", "التستوستيرون"), {"testosterone"}), (("fsh",), {"fsh"}), (("lh",), {"lh"}),
+               (("hba1c", "a1c", "سكر", "التراكمي"), {"hba1c"}), (("vitamin d", "vit d", "فيتامين"), {"vitamin_d"}),
+               (("hormone", "هرمون"), {"testosterone", "fsh", "lh"})]
+
+
+def _test_fields(name):
+    n = name.lower()
+    out = set()
+    for words, fields in TEST_FIELDS:
+        if any(w in n for w in words):
+            out |= fields
+    return out
+
+
+def _consult_view(r, lang="en", c=None):
     o = security.unseal(r["outcome"]) or {}
     nk = NEXT_KINDS.get(o.get("next"), (o.get("next"), o.get("next")))
+    done = set(o.get("tests_done", []))
+    labs = set()
+    if c is not None:
+        a = c.execute("SELECT user_id FROM assessments WHERE id=?", (r["assessment_id"],)).fetchone()
+        if a:
+            labs = {x["field"] for x in c.execute("SELECT field FROM lab_results WHERE user_id=? AND created_at>=? AND review_status!='rejected'",
+                                                  (a["user_id"], r["created_at"])).fetchall()}
+    tests = []
+    for t in o.get("tests_ordered", []):
+        f = _test_fields(t)
+        via_lab = bool(f & labs)
+        tests.append({"name": t, "done": t in done or via_lab, "via": "result" if via_lab else ("you" if t in done else None), "uploadable": bool(f)})
     return {"id": r["id"], "created_at": r["created_at"], "summary": o.get("summary"), "tests_ordered": o.get("tests_ordered", []),
+            "tests": tests, "tests_all_done": bool(tests) and all(t["done"] for t in tests),
             "plan": o.get("plan"), "next": o.get("next"), "next_label": nk[1] if lang == "ar" else nk[0],
-            "followup_at": r["followup_at"], "followup_done_at": r["followup_done_at"], "by": "Specialist"}
+            "followup_at": r["followup_at"], "followup_done_at": r["followup_done_at"],
+            "by": "Clinic" if (r["clinician"] or "").startswith("clinic:") else "Specialist"}
+
+
+def _record_consultation(c, aid, actor, body):
+    if body.next in ("followup", "treatment", "fertility") and not body.followup_weeks:
+        raise HTTPException(400, "Set when he should be followed up")
+    if not _referral(c, aid):
+        raise HTTPException(404, "No referral")
+    now = time.time()
+    fu = now + body.followup_weeks * 7 * 86400 if body.followup_weeks else None
+    _set_referral(c, aid, "attended")
+    c.execute("UPDATE appointments SET status='attended', updated_at=? WHERE assessment_id=? AND status='confirmed'", (now, aid))
+    c.execute("INSERT INTO consultations VALUES (?,?,?,?,?,?,NULL)",
+              (str(uuid.uuid4()), aid, actor, now, security.seal({**body.model_dump(), "tests_done": []}), fu))
+    when = time.strftime("%Y-%m-%d", time.gmtime(fu)) if fu else None
+    _message(c, aid, "clinician", "سجّل المختص ملخص زيارتك وخطتك. افتح «مساري» لتراها." + (f" موعد المتابعة: {when}." if when else "")
+             + " / The specialist recorded your visit summary and plan. Open My journey to see it." + (f" Follow-up due: {when}." if when else ""))
+    return fu
 
 
 class ConsultationIn(BaseModel):
@@ -1807,22 +1944,9 @@ class ConsultationIn(BaseModel):
 @app.post("/api/clinician/cases/{aid}/consultation")
 def record_consultation(aid: str, body: ConsultationIn, clin=Depends(current_clinician)):
     """The specialist closes the loop: what was found, what was ordered, and when he should come back."""
-    if body.next in ("followup", "treatment", "fertility") and not body.followup_weeks:
-        raise HTTPException(400, "Set when he should be followed up")
-    now = time.time()
-    fu = now + body.followup_weeks * 7 * 86400 if body.followup_weeks else None
     with db.tx() as c:
         _visible(c, aid)
-        if not _referral(c, aid):
-            raise HTTPException(404, "No referral")
-        _set_referral(c, aid, "attended")
-        if body.tests_ordered:
-            c.execute("UPDATE referrals SET status='attended' WHERE assessment_id=?", (aid,))
-        c.execute("INSERT INTO consultations VALUES (?,?,?,?,?,?,NULL)",
-                  (str(uuid.uuid4()), aid, clin, now, security.seal(body.model_dump()), fu))
-        when = time.strftime("%Y-%m-%d", time.gmtime(fu)) if fu else None
-        _message(c, aid, "clinician", "سجّل المختص ملخص زيارتك وخطتك. افتح «مساري» لتراها." + (f" موعد المتابعة: {when}." if when else "")
-                 + " / The specialist recorded your visit summary and plan. Open My journey to see it." + (f" Follow-up due: {when}." if when else ""))
+        fu = _record_consultation(c, aid, clin, body)
     db.audit(clin, "consultation_recorded", aid)
     db.event(aid, "consultation_recorded", body.next)
     return {"ok": True, "followup_at": fu}
@@ -1844,10 +1968,11 @@ def followup_ics(aid: str, user=Depends(current_user)):
 def pathway_board(clin=Depends(current_clinician)):
     """Coordinator view: how many men are at each stage, and who has stalled long enough to need a nudge."""
     counts = {s: 0 for s in pathway.STAGES}
-    stalled = []
+    stalled, at_risk = [], []
     with db.tx() as c:
         rows = c.execute("""SELECT a.* FROM assessments a JOIN referrals r ON r.assessment_id=a.id
-                            WHERE a.completed_at IS NOT NULL AND (a.review_consent=1 OR EXISTS
+                            WHERE a.completed_at IS NOT NULL AND a.user_id NOT IN (SELECT id FROM users WHERE sharing_paused=1)
+                              AND (a.review_consent=1 OR EXISTS
                               (SELECT 1 FROM appointments x WHERE x.assessment_id=a.id))""").fetchall()
         for row in rows:
             ref = _referral(c, row["id"])
@@ -1858,13 +1983,22 @@ def pathway_board(clin=Depends(current_clinician)):
             if cur:
                 counts[cur] += 1
             s = pathway.stalled(stg, cur, appt, con)
+            if cur and cur not in ("recheck",):
+                risk = prescribe.dropout_risk(row, ref, appt, security.unseal(row["answers"]) or {}, bool(s))
+                if risk["band"] != "low":
+                    at_risk.append({"id": row["id"], "stage": cur, "stage_label": pathway.LABELS["en"][cur], "level": _final_level(row, ref),
+                                    "cohort": row["cohort"], "simulated": bool(row["simulated"]), **risk})
             if s:
                 stalled.append({"id": row["id"], "stage": s[0], "days": s[1], "reason": pathway.STALL_TEXT[s[0]], "level": _final_level(row, ref),
                                 "cohort": row["cohort"], "simulated": bool(row["simulated"]), "barrier": ref["barrier"] if ref else None,
-                                "can_nudge": s[0] in pathway.NUDGE})
+                                "can_nudge": s[0] in pathway.NUDGE,
+                                "reminded": bool(c.execute("SELECT 1 FROM events WHERE assessment_id=? AND type IN ('nudge','auto_nudge') AND detail=?",
+                                                           (row["id"], s[0])).fetchone())})
     stalled.sort(key=lambda x: -x["days"])
     db.audit(clin, "view_pathway")
+    at_risk.sort(key=lambda x: -x["points"])
     return {"stages": [{"key": k, "label": pathway.LABELS["en"][k], "n": counts[k]} for k in pathway.STAGES], "stalled": stalled,
+            "at_risk": at_risk[:50], "risk_factors": {k: {"points": v[0], "text": v[1], "source": v[2]} for k, v in prescribe.DROPOUT_FACTORS.items()},
             "thresholds_days": pathway.STALL}
 
 
@@ -1881,6 +2015,374 @@ def nudge(aid: str, body: NudgeIn, clin=Depends(current_clinician)):
     db.audit(clin, "nudge_sent", aid)
     db.event(aid, "nudge", body.stage)
     return {"ok": True}
+
+
+class TestDoneIn(BaseModel):
+    test: str = Field(min_length=1, max_length=200)
+    done: bool = True
+
+
+@app.post("/api/assessments/{aid}/consultation/tests")
+def mark_test(aid: str, body: TestDoneIn, lang: str = "en", user=Depends(current_user)):
+    """He ticks off a test the specialist ordered. Saving the result itself ticks it automatically."""
+    own_assessment(aid, user)
+    with db.tx() as c:
+        con = _consultation(c, aid)
+        if not con:
+            raise HTTPException(404, "No visit recorded")
+        o = security.unseal(con["outcome"]) or {}
+        if body.test not in o.get("tests_ordered", []):
+            raise HTTPException(400, "Not one of the ordered tests")
+        done = set(o.get("tests_done", []))
+        done = done | {body.test} if body.done else done - {body.test}
+        o["tests_done"] = sorted(done)
+        c.execute("UPDATE consultations SET outcome=? WHERE id=?", (security.seal(o), con["id"]))
+        view = _consult_view(c.execute("SELECT * FROM consultations WHERE id=?", (con["id"],)).fetchone(), lang_of(lang), c)
+        if view["tests_all_done"]:
+            ref = _referral(c, aid)
+            if ref and not ref["tests_done_at"]:
+                _set_referral(c, aid, "tests_done", self_reported=True)
+    db.event(aid, "ordered_test_marked", "done" if body.done else "undone")
+    return view
+
+
+# ------------------------------------------------------------------ privacy: pause all sharing, and how long data is kept
+@app.get("/api/me/privacy")
+def get_privacy(user=Depends(current_user)):
+    with db.tx() as c:
+        return sharing.privacy(c, user)
+
+
+class PrivacyIn(BaseModel):
+    paused: Optional[bool] = None
+    retention_months: Optional[int] = -1
+    reminders: Optional[bool] = None
+
+
+@app.post("/api/me/privacy")
+def set_privacy(body: PrivacyIn, user=Depends(current_user)):
+    try:
+        with db.tx() as c:
+            out = sharing.set_privacy(c, user, body.paused, body.retention_months, body.reminders)
+    except ValueError:
+        raise HTTPException(400, "Choose 3, 6, 12 or 24 months, or keep until you delete")
+    db.audit("user", "privacy_changed", user[:8])
+    return out
+
+
+# ------------------------------------------------------------------ clinic portal: the receiving specialist, with his handover code
+CLINIC_HOURS = 12
+_clinic_attempts = {}
+
+
+class ClinicOpenIn(BaseModel):
+    code: str = Field(min_length=4, max_length=20)
+
+
+def _clinic_share(c, code):
+    s = c.execute("SELECT s.*, a.user_id FROM shares s JOIN assessments a ON a.id=s.assessment_id WHERE s.code=? AND s.revoked=0 AND s.expires_at>?",
+                  (code, time.time())).fetchone()
+    if not s or sharing.is_paused(c, s["user_id"]):
+        return None
+    return s
+
+
+@app.post("/api/clinic/open")
+def clinic_open(body: ClinicOpenIn, request: Request):
+    """The clinic types the code he gave them. No Riaya account is needed; access ends when the code expires or he withdraws it."""
+    ip = request.client.host if request.client else "?"
+    now = time.time()
+    tries = [t for t in _clinic_attempts.get(ip, []) if now - t < 3600]
+    if len(tries) >= 20:
+        raise HTTPException(429, "Too many attempts. Try again in an hour.")
+    _clinic_attempts[ip] = tries + [now]
+    code = "".join(ch for ch in body.code.upper() if ch.isalnum() or ch == "-")
+    with db.tx() as c:
+        s = _clinic_share(c, code)
+        if not s:
+            raise HTTPException(404, "Code invalid, expired or withdrawn")
+        appt = c.execute("SELECT provider_id FROM appointments WHERE share_code=?", (code,)).fetchone()
+        actor = "clinic:" + (appt["provider_id"] if appt else "code")
+        token = security.new_token()
+        c.execute("INSERT INTO clinic_access VALUES (?,?,?,?,?)",
+                  (security.token_hash(token), code, s["assessment_id"], now, min(s["expires_at"], now + CLINIC_HOURS * 3600)))
+        c.execute("UPDATE shares SET used_by=COALESCE(used_by, ?) WHERE code=?", (actor, code))
+    return {"token": token, "expires_in_hours": CLINIC_HOURS}
+
+
+def current_clinic(authorization: str = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Missing token")
+    with db.tx() as c:
+        a = c.execute("SELECT * FROM clinic_access WHERE token_hash=? AND expires_at>?", (security.token_hash(authorization[7:]), time.time())).fetchone()
+        s = _clinic_share(c, a["code"]) if a else None
+        if not s:  # he withdrew the code or paused sharing: access ends at once
+            raise HTTPException(401, "Access ended: the code expired or he withdrew it")
+        appt = c.execute("SELECT provider_id FROM appointments WHERE share_code=?", (a["code"],)).fetchone()
+    return {"aid": a["assessment_id"], "code": a["code"], "actor": "clinic:" + (appt["provider_id"] if appt else "code")}
+
+
+@app.get("/api/clinic/case")
+def clinic_case(clinic=Depends(current_clinic)):
+    aid = clinic["aid"]
+    with db.tx() as c:
+        row = c.execute("SELECT * FROM assessments WHERE id=?", (aid,)).fetchone()
+        ref = _referral(c, aid)
+        share = c.execute("SELECT * FROM shares WHERE code=?", (clinic["code"],)).fetchone()
+        allowed = sharing.scope_of(c, share, row["user_id"])
+        appt = c.execute("SELECT a.*, p.name_en FROM appointments a JOIN providers p ON p.id=a.provider_id WHERE a.share_code=?",
+                         (clinic["code"],)).fetchone()
+        con = _consultation(c, aid)
+        con_view = _consult_view(con, "en", c) if con else None
+        prefs = security.unseal(appt["prefs"]) if appt else None
+        letter, result, _ = _package(c, row, allowed)
+    labs, withheld = letter["labs"], letter["withheld"]
+    answers = security.unseal(row["answers"]) or {}
+    view = assessment.user_view(result, "en")
+    db.audit(clinic["actor"], "clinic_view", aid)
+    return {"id": aid, "letter": letter["letter"], "fhir": letter["bundle"], "withheld": withheld, "allowed": allowed,
+            "level": _final_level(row, ref), "doctor_reviewed": bool(ref and ref["reviewed_at"]), "next_step": view["next_step"],
+            "tests_suggested": view["tests"], "tests_have": _tests_have(result), "labs": labs,
+            "appointment": {"clinic": appt["name_en"], "status": appt["status"], "slot_at": appt["slot_at"],
+                            "times": (prefs or {}).get("times"), "days": (prefs or {}).get("days"),
+                            "contact": (prefs or {}).get("contact")} if appt else None,
+            "preferences": {k: answers.get(k) for k in ("pref_language", "pref_clinician") if answers.get(k)},
+            "consultation": con_view, "next_kinds": {k: v[0] for k, v in NEXT_KINDS.items()},
+            "view_only": appt is None, "purpose": share["purpose"] or "clinic", "expires_at": share["expires_at"]}
+
+
+def _needs_appointment(c, clinic):
+    if not c.execute("SELECT 1 FROM appointments WHERE share_code=?", (clinic["code"],)).fetchone():
+        raise HTTPException(403, "This code is for viewing only. Visits are recorded by the clinic he booked through Riaya.")
+
+
+class ClinicAttendIn(BaseModel):
+    outcome: str = Field(pattern="^(attended|missed)$")
+
+
+@app.post("/api/clinic/attendance")
+def clinic_attendance(body: ClinicAttendIn, clinic=Depends(current_clinic)):
+    aid = clinic["aid"]
+    with db.tx() as c:
+        _needs_appointment(c, clinic)
+        a = c.execute("SELECT * FROM appointments WHERE share_code=?", (clinic["code"],)).fetchone()
+        if a:
+            c.execute("UPDATE appointments SET status=?, updated_at=? WHERE id=?", (body.outcome, time.time(), a["id"]))
+        if body.outcome == "attended":
+            _set_referral(c, aid, "attended")
+        else:
+            _message(c, aid, "clinician", "لم نرك في موعدك. يمكنك اختيار وقت آخر من «مساري» متى ناسبك. / "
+                                          "We missed you at your appointment. You can choose another time in My journey whenever suits you.")
+    db.audit(clinic["actor"], "clinic_attendance", aid)
+    db.event(aid, f"clinic_{body.outcome}")
+    return {"ok": True}
+
+
+@app.post("/api/clinic/consultation")
+def clinic_consultation(body: ConsultationIn, clinic=Depends(current_clinic)):
+    """The receiving specialist sends the visit summary back, so his journey and his companion know what happens next."""
+    with db.tx() as c:
+        _needs_appointment(c, clinic)
+        fu = _record_consultation(c, clinic["aid"], clinic["actor"], body)
+    db.audit(clinic["actor"], "consultation_recorded", clinic["aid"])
+    db.event(clinic["aid"], "consultation_recorded", body.next)
+    return {"ok": True, "followup_at": fu}
+
+
+class ClinicMsgIn(BaseModel):
+    body: str = Field(min_length=1, max_length=1000)
+
+
+@app.post("/api/clinic/message")
+def clinic_message(body: ClinicMsgIn, clinic=Depends(current_clinic)):
+    with db.tx() as c:
+        _message(c, clinic["aid"], "clinician", "From the clinic / من العيادة: " + body.body)
+    db.audit(clinic["actor"], "clinic_message", clinic["aid"])
+    return {"ok": True}
+
+
+# ------------------------------------------------------------------ prescriptive and predictive: best changes and a 12-week projection
+@app.get("/api/assessments/{aid}/forecast")
+def forecast(aid: str, lang: str = "en", nodes: Optional[str] = None, user=Depends(current_user)):
+    """His best changes ranked (expected effect x evidence / effort) and how his signals could move over 12 weeks.
+    `nodes` (comma-separated) lets him try his own choice of changes."""
+    _, result = completed(aid, user)
+    L = lang_of(lang)
+    best = prescribe.best_changes(result, L)
+    pick = [n for n in (nodes or "").split(",") if n] or (best["bundle"]["nodes"] if best["bundle"] else [])
+    return {"best": best, "projection": prescribe.projection(result, pick, lang=L), "selected": pick}
+
+
+# ------------------------------------------------------------------ privacy: see exactly what they will see, and add his questions
+class QuestionsIn(BaseModel):
+    questions: list[str] = Field(default_factory=list, max_length=8)
+
+
+@app.put("/api/assessments/{aid}/questions")
+def save_questions(aid: str, body: QuestionsIn, user=Depends(current_user)):
+    """Questions he wants to discuss at the visit. They travel with the referral, in his words."""
+    own_assessment(aid, user)
+    qs = [q.strip()[:300] for q in body.questions if q and q.strip()][:8]
+    with db.tx() as c:
+        if qs:
+            c.execute("INSERT OR REPLACE INTO visit_questions VALUES (?,?,?)", (aid, security.seal(qs), time.time()))
+        else:
+            c.execute("DELETE FROM visit_questions WHERE assessment_id=?", (aid,))
+    return {"questions": qs}
+
+
+@app.get("/api/assessments/{aid}/questions")
+def get_questions(aid: str, user=Depends(current_user)):
+    own_assessment(aid, user)
+    with db.tx() as c:
+        return {"questions": _questions(c, aid)}
+
+
+@app.get("/api/assessments/{aid}/share-preview")
+def share_preview(aid: str, recipient: str = "clinic", categories: Optional[str] = None, user=Depends(current_user)):
+    """Exactly what the doctor or clinic would see, built by the same code that builds their view. Nothing is shared by previewing.
+    `categories` previews a choice before he saves it."""
+    if recipient not in sharing.RECIPIENTS:
+        raise HTTPException(400, "Unknown recipient")
+    row, _ = completed(aid, user)
+    with db.tx() as c:
+        prefs = sharing.get(c, user)
+        allowed = prefs[recipient] if categories is None else \
+            sorted(set(categories.split(",")) & set(sharing.CATEGORIES) | sharing.REQUIRED, key=sharing.CATEGORIES.index)
+        out, _, _ = _package(c, row, allowed)
+        paused = sharing.is_paused(c, user)
+    return {"recipient": recipient, "allowed": out["allowed"], "withheld": out["withheld"], "letter": out["letter"],
+            "questions": out["questions"], "paused": paused, "lab_count": len(out["labs"] or [])}
+
+
+# ------------------------------------------------------------------ human in the loop: doctors agree or disagree with each finding
+class FindingReviewIn(BaseModel):
+    node: str = Field(min_length=1, max_length=60)
+    verdict: str = Field(pattern="^(agree|disagree)$")
+    reason: Optional[str] = Field(None, max_length=500)
+
+
+@app.post("/api/clinician/cases/{aid}/findings")
+def review_finding(aid: str, body: FindingReviewIn, clin=Depends(current_clinician)):
+    """A doctor agrees or disagrees with one explained finding. Disagreeing needs a reason; every review is kept and audited."""
+    if body.verdict == "disagree" and not (body.reason and body.reason.strip()):
+        raise HTTPException(400, "Say why you disagree")
+    if body.node not in graph().nodes:
+        raise HTTPException(400, "Unknown finding")
+    with db.tx() as c:
+        _visible(c, aid)
+        c.execute("INSERT INTO finding_reviews VALUES (?,?,?,?,?,?,?)",
+                  (str(uuid.uuid4()), aid, body.node, clin, body.verdict, (body.reason or "").strip() or None, time.time()))
+    db.audit(clin, "finding_" + body.verdict, aid)
+    return {"ok": True}
+
+
+@app.get("/api/clinician/cases/{aid}/findings")
+def case_findings(aid: str, clin=Depends(current_clinician)):
+    with db.tx() as c:
+        _visible(c, aid)
+        rows = c.execute("SELECT node, verdict, reason, clinician, ts FROM finding_reviews WHERE assessment_id=? ORDER BY ts", (aid,)).fetchall()
+    latest = {}
+    for r in rows:
+        latest[r["node"]] = dict(r)
+    return {"reviews": latest}
+
+
+@app.get("/api/clinician/findings/agreement")
+def finding_agreement(clin=Depends(current_clinician)):
+    """How often doctors agree with each kind of finding, to show where the explanations need work."""
+    g = graph()
+    with db.tx() as c:
+        rows = c.execute("SELECT node, SUM(verdict='agree') a, COUNT(*) n FROM finding_reviews GROUP BY node ORDER BY n DESC").fetchall()
+        reasons = c.execute("SELECT node, reason FROM finding_reviews WHERE verdict='disagree' AND reason IS NOT NULL ORDER BY ts DESC LIMIT 20").fetchall()
+    return {"by_finding": [{"node": r["node"], "label": g.nodes[r["node"]]["label"], "reviews": r["n"], "agree_pct": round(100 * r["a"] / r["n"])} for r in rows],
+            "recent_disagreements": [{"label": g.nodes[r["node"]]["label"], "reason": r["reason"]} for r in reasons]}
+
+
+# ------------------------------------------------------------------ automatic, discreet pathway reminders
+def run_reminders():
+    """Once per stage, a short private message when he has been stuck longer than the threshold, and one when his
+    re-check is due. Never when he paused sharing or turned reminders off; never by SMS or phone."""
+    sent = 0
+    with db.tx() as c:
+        rows = c.execute("""SELECT a.* FROM assessments a JOIN users u ON u.id=a.user_id
+                            WHERE a.completed_at IS NOT NULL AND a.simulated=0 AND COALESCE(u.reminders,1)=1 AND COALESCE(u.sharing_paused,0)=0
+                              AND a.completed_at=(SELECT MAX(b.completed_at) FROM assessments b WHERE b.user_id=a.user_id)""").fetchall()
+        for row in rows:
+            ref = _referral(c, row["id"])
+            appt = c.execute("SELECT * FROM appointments WHERE assessment_id=? AND status!='cancelled' ORDER BY created_at DESC LIMIT 1",
+                             (row["id"],)).fetchone()
+            con = _consultation(c, row["id"])
+            stg, cur = pathway.stages(row, ref, appt, con, _final_level(row, ref), "en")
+            due = None
+            if cur == "recheck":
+                due = "recheck"
+            else:
+                st = pathway.stalled(stg, cur, appt, con)
+                if st and st[0] in pathway.NUDGE:
+                    due = st[0]
+            if not due or c.execute("SELECT 1 FROM events WHERE assessment_id=? AND type IN ('nudge','auto_nudge') AND detail=?",
+                                    (row["id"], due)).fetchone():
+                continue
+            _message(c, row["id"], "clinician", pathway.NUDGE[due])
+            c.execute("INSERT INTO events VALUES (?,?,?,?)", (time.time(), row["id"], "auto_nudge", due))
+            sent += 1
+    if sent:
+        db.audit("system", "reminders_sent", str(sent))
+    return sent
+
+
+@app.post("/api/clinician/reminders/run")
+def reminders_now(clin=Depends(current_clinician)):
+    """Runs the hourly reminder check now (for the coordinator)."""
+    return {"sent": run_reminders()}
+
+
+# ------------------------------------------------------------------ preparing for the visit, and how it went
+@app.get("/api/assessments/{aid}/prepare")
+def prepare_visit(aid: str, lang: str = "en", user=Depends(current_user)):
+    row, result = completed(aid, user)
+    L = lang_of(lang)
+    with db.tx() as c:
+        ref = _referral(c, aid)
+        con = _consultation(c, aid)
+        con_view = _consult_view(con, L, c) if con else None
+        labs = labtimeline.series(_lab_points(c, "user_id=?", (user,), L), L)
+    have = [f"{x['name']} {x['value']}".strip() for x in _tests_have(result) if x.get("value")] + \
+           [f"{x['name']} {x['latest']['value']} {x['unit'] or ''}".strip() for x in labs if x["latest"]]
+    return visit.prepare(result, assessment.user_view(result, L), security.unseal(row["answers"]) or {}, _final_level(row, ref),
+                         have, con_view, L)
+
+
+class VisitFeedbackIn(BaseModel):
+    respect: int = Field(ge=1, le=5)
+    privacy: int = Field(ge=1, le=5)
+    explained: int = Field(ge=1, le=5)
+    recommend: bool
+    wait_days: Optional[float] = Field(None, ge=0, le=365)
+
+
+@app.post("/api/assessments/{aid}/visit-feedback")
+def visit_feedback(aid: str, body: VisitFeedbackIn, user=Depends(current_user)):
+    """Three quick ratings after the visit. Clinics and the health authority only ever see averages over 5 or more men."""
+    own_assessment(aid, user)
+    with db.tx() as c:
+        a = c.execute("SELECT * FROM appointments WHERE assessment_id=? AND status='attended' ORDER BY created_at DESC LIMIT 1", (aid,)).fetchone()
+        if not a:
+            raise HTTPException(409, "Rate the visit after you have attended it")
+        c.execute("INSERT OR REPLACE INTO visit_feedback VALUES (?,?,?,?,?,?,?,?)",
+                  (aid, a["provider_id"], body.respect, body.privacy, body.explained, int(body.recommend), body.wait_days, time.time()))
+    db.event(aid, "visit_feedback")
+    return {"ok": True}
+
+
+@app.get("/api/assessments/{aid}/visit-feedback")
+def get_visit_feedback(aid: str, user=Depends(current_user)):
+    own_assessment(aid, user)
+    with db.tx() as c:
+        r = c.execute("SELECT * FROM visit_feedback WHERE assessment_id=?", (aid,)).fetchone()
+        can = bool(c.execute("SELECT 1 FROM appointments WHERE assessment_id=? AND status='attended'", (aid,)).fetchone())
+    return {"given": dict(r) if r else None, "can_rate": can}
 
 
 # ------------------------------------------------------------------ static web app

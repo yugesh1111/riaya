@@ -111,13 +111,19 @@ async function openCase(id) {
       <div class="card tight"><b>Findings, with evidence</b><p class="small muted">Click a factor to open the evidence explorer.</p>
         ${ex.cards.slice(0, 8).map(cd => `<div class="plan-item small"><a href="#" data-ev="${cd.node}"><b>${esc(cd.label)}</b></a> ${cd.grade ? gradeTag(cd.grade) : ""}
           <span class="muted">contribution ${cd.contribution.toFixed(2)}</span><br>${esc(cd.observation)}${cd.relevance ? `<br><span class="muted">${esc(cd.relevance)}</span>` : ""}
-          ${cd.limitations.length ? `<br><i class="muted">${cd.limitations.map(esc).join(" ")}</i>` : ""}</div>`).join("")}</div>
+          ${cd.limitations.length ? `<br><i class="muted">${cd.limitations.map(esc).join(" ")}</i>` : ""}
+          <div class="row fr" data-node="${cd.node}" style="margin-top:6px;gap:6px"><button class="chip fa">Agree</button><button class="chip fd">Disagree</button>
+            <span class="muted fs"></span></div></div>`).join("")}
+        <p class="small muted" style="margin-top:8px">Your verdicts are recorded with your name, shown to him only as "a doctor reviewed a finding", and used to improve the explanations.</p></div>
       <div id="evx"></div>
       <div class="grid2">
         <div class="card tight"><b class="small">Evidence-graph attribution</b>${attr.slice(0, 8).map(([k, v]) => `<div class="small" style="margin:6px 0">${esc(node(k).label)}
           <div class="bar" style="width:${Math.abs(v) / maxA * 100}%"></div></div>`).join("")}</div>
         <div class="card tight"><b class="small">Statistical model (SHAP)</b><p class="muted small">P(below-reference semen) ${r.models.simulated_gbm.probability}. Simulated cohort, test AUC ${r.models.simulated_gbm.auc_test}.</p>
-          ${waterfall(r.models.simulated_gbm)}<p class="muted small">Real-data model (UCI, n=100): P(altered) ${r.models.uci_logistic.probability}. Context only.</p></div>
+          ${waterfall(r.models.simulated_gbm)}<p class="muted small">Real-data model (UCI, n=100): P(altered) ${r.models.uci_logistic.probability}. Context only.</p>
+          ${r.models.riaya_net ? `<div style="margin-top:10px"><b class="small">Riaya-Net</b> <span class="muted small">our network, pre-trained on our cohort, fine-tuned on real data. P ${r.models.riaya_net.probability}; cross-validated AUC ${r.models.riaya_net.real_data_auc ?? "—"} (small data, wide interval). Second opinion only.</span>
+            ${r.models.riaya_net.contributions.slice(0, 5).map(c => `<div class="small" style="display:flex;gap:8px;align-items:center;margin:4px 0"><span style="flex:0 0 170px">${esc(c.label)}</span>
+              <div class="bar ${c.logit < 0 ? "neg" : ""}" style="width:${Math.min(100, Math.abs(c.logit) * 120)}px"></div><span class="muted">${c.logit > 0 ? "+" : ""}${c.logit}</span></div>`).join("")}</div>` : ""}</div>
       </div>
     </section>
 
@@ -163,6 +169,31 @@ async function openCase(id) {
   }
   $$("[data-s]").forEach(b => b.onclick = async () => { await API.post(`/api/clinician/cases/${id}/status`, { status: b.dataset.s }); openCase(id); });
   $$("[data-ev]").forEach(x => x.onclick = e => { e.preventDefault(); evidence(x.dataset.ev, r); });
+  // human in the loop: agree or disagree with each explained finding (a reason is required to disagree)
+  const showVerdicts = async () => {
+    const { reviews } = await API.get(`/api/clinician/cases/${id}/findings`);
+    $$(".fr").forEach(row => {
+      const v = reviews[row.dataset.node];
+      row.querySelector(".fa").classList.toggle("on", v?.verdict === "agree");
+      row.querySelector(".fd").classList.toggle("on", v?.verdict === "disagree");
+      row.querySelector(".fs").textContent = v ? (v.verdict === "agree" ? "Agreed" : `Disagreed: ${v.reason}`) : "";
+    });
+  };
+  $$(".fr").forEach(row => {
+    const send = async (verdict, reason) => {
+      try { await API.post(`/api/clinician/cases/${id}/findings`, { node: row.dataset.node, verdict, reason }); showVerdicts(); }
+      catch (e) { row.querySelector(".fs").textContent = e.message; }
+    };
+    row.querySelector(".fa").onclick = () => send("agree");
+    row.querySelector(".fd").onclick = () => {
+      if (row.querySelector("input")) return;
+      row.querySelector(".fs").innerHTML = `<input type="text" placeholder="Why? (required)" maxlength="500" style="min-width:220px"> <button class="chip">Save</button>`;
+      const inp = row.querySelector("input"); inp.focus();
+      row.querySelector(".fs button").onclick = () => send("disagree", inp.value);
+      inp.onkeydown = e => { if (e.key === "Enter") send("disagree", inp.value); };
+    };
+  });
+  showVerdicts().catch(() => {});
   const thread = ms => { $("#thread").innerHTML = ms.map(m => Notes.render(m, `/api/clinician/cases/${id}/voice-notes`, (m.sender === "user" ? "Patient" : "Clinician") + ", " + fmt(m.ts))).join("") || '<p class="muted">No messages yet.</p>'; Notes.wire($("#thread")); };
   thread(c.messages || []);
   $("#csend").onclick = async () => { const v = $("#cmsg").value.trim(); if (!v) return; await API.post(`/api/clinician/cases/${id}/messages`, { body: v }); $("#cmsg").value = ""; thread(await API.get(`/api/clinician/cases/${id}/messages`)); };
@@ -298,7 +329,7 @@ async function appointments() {
     ${req.length ? "" : `<p class="muted">No requests waiting. When a patient chooses a clinic after approval, it appears here.</p>`}
     ${req.map(a => `<div class="card" data-id="${a.id}"><div class="row"><b>${esc(a.provider ? a.provider.name_en : "?")}</b><span class="spacer"></span><span class="muted small">${ago(a.created_at)}</span></div>
       <p class="small">Level: ${esc(a.level || "")}<br>Prefers: ${esc(prefs(a))}<br>Contact: ${a.contact === "phone" ? `phone <span dir="ltr">${esc(a.phone || "")}</span>` : "Riaya messages"}
-      ${a.share_code ? `<br>Handover code <span class="code" dir="ltr">${esc(a.share_code)}</span>` : ""}</p>
+      ${a.share_code ? `<br>Handover code <span class="code" dir="ltr">${esc(a.share_code)}</span><br><span class="muted">Send the clinic this link: <span dir="ltr">${esc(location.origin)}/clinic.html#code=${esc(a.share_code)}</span>. They see only what he shares and record the visit there.</span>` : ""}</p>
       ${a.note ? `<p class="small">“${esc(a.note)}”</p>` : ""}
       <p class="small muted">Agree a time with the clinic, then confirm it here. He gets a message and a discreet calendar entry.</p>
       <div class="row"><label class="small">Date and time <input type="datetime-local" class="slot"></label>
@@ -376,6 +407,7 @@ async function labReview() {
       <td><div class="row"><button class="chip ok">Accept</button><input type="number" step="0.01" class="cv" placeholder="Correct to" style="width:100px">
         <input type="text" class="cn" maxlength="300" placeholder="Reason (needed to correct or set aside)" style="min-width:200px">
         <button class="chip fix">Correct</button><button class="chip rej">Set aside</button><button class="chip openc">Open case</button><span class="small msg" role="status"></span></div></td></tr>`).join("")}</table>`;
+  $$("#tab tr[data-rid] .ro").forEach(btn => btn.onclick = async () => { $$(".tabs [data-t]").forEach(x => x.classList.toggle("on", x.dataset.t === "queue")); await queue(); openCase(btn.closest("tr").dataset.rid); });
   $$("#tab tr[data-id]").forEach(row => {
     const $r = s => row.querySelector(s), id = row.dataset.id, item = r.results.find(x => x.id === id);
     const go = async body => { try { await API.post(`/api/clinician/labs/${id}`, body); labReview(); } catch (e) { $r(".msg").textContent = e.message; } };
@@ -422,13 +454,25 @@ async function pathwayBoard() {
   $("#tab").innerHTML = `<div class="card"><h2>Where men are on the pathway</h2><p class="muted small">Current stage of every referred man who consented to review or chose a clinic.</p>
       <div style="display:grid;grid-template-columns:200px 1fr 40px;gap:6px 12px;align-items:center" class="small">
       ${b.stages.map(s => `<span>${esc(s.label)}</span><div style="height:12px;background:var(--line);border-radius:6px;overflow:hidden"><div style="width:${100 * s.n / max}%;height:100%;background:var(--brand)"></div></div><b>${s.n}</b>`).join("")}</div></div>
+    <div class="card"><h2>Early warning <span class="muted">(${(b.at_risk || []).length})</span></h2>
+      <p class="muted small">Men who may fall off the pathway before they stall, scored from published predictors of missed care. Each reason is shown; nothing is decided automatically.</p>
+      ${(b.at_risk || []).length ? `<table><tr><th>Risk</th><th>Now at</th><th>Why</th><th>Level</th><th></th></tr>
+        ${b.at_risk.slice(0, 15).map(x => `<tr data-rid="${x.id}"><td><span class="tag" style="${x.band === "high" ? "background:color-mix(in srgb,var(--alert) 18%,transparent)" : ""}">${x.band} · ${x.points}</span></td>
+          <td class="small">${esc(x.stage_label)}</td><td class="small">${x.reasons.map(r => `<span title="${esc(r.source)}">${esc(r.text)}</span>`).join("<br>")}</td>
+          <td>${lvl(x.level)}${x.simulated ? ` <span class="tag">simulated</span>` : ""}</td><td><button class="chip ro">Open case</button></td></tr>`).join("")}</table>`
+        : `<p class="muted">No one is flagged right now.</p>`}
+      <details class="small" style="margin-top:8px"><summary>How the score works</summary><ul>${Object.values(b.risk_factors || {}).map(f => `<li>+${f.points} ${esc(f.text)} <span class="muted">(${esc(f.source)})</span></li>`).join("")}</ul>
+        <p class="muted">Medium at 3 points, high at 5. It becomes a fitted model once the pilot has enough real outcomes.</p></details></div>
     <div class="card"><h2>Needs a nudge <span class="muted">(${b.stalled.length})</span></h2>
-      <p class="muted small">Stalled longer than: ${Object.entries(b.thresholds_days).map(([k, v]) => `${k} ${v} d`).join(", ")}. A nudge is a short private message, never an SMS or call.</p>
+      <p class="muted small">Stalled longer than: ${Object.entries(b.thresholds_days).map(([k, v]) => `${k} ${v} d`).join(", ")}. A nudge is a short private message, never an SMS or call.
+        Riaya also sends one automatic reminder per stage every hour, unless he turned reminders off or paused sharing.</p>
+      <p class="row"><button class="chip" id="remRun">Send due reminders now</button><span class="small" id="remMsg" role="status"></span></p>
       ${b.stalled.length ? `<table><tr><th>Stage</th><th>Days</th><th>Level</th><th>Cohort</th><th></th></tr>
         ${b.stalled.map(x => `<tr data-id="${x.id}" data-stage="${x.stage}"><td>${esc(x.reason)}${x.barrier ? `<br><span class="muted small">said: ${esc(MISSED_TEXT[x.barrier] || x.barrier)}</span>` : ""}</td>
           <td>${x.days}</td><td>${lvl(x.level)}</td><td class="small">${esc(x.cohort || "")}${x.simulated ? " <span class=\"tag\">simulated</span>" : ""}</td>
-          <td><div class="row">${x.can_nudge ? `<button class="chip nd">Send nudge</button>` : ""}<button class="chip oc">Open case</button><span class="small msg"></span></div></td></tr>`).join("")}</table>`
+          <td><div class="row">${x.reminded ? `<span class="tag">reminded</span>` : ""}${x.can_nudge && !x.reminded ? `<button class="chip nd">Send nudge</button>` : ""}<button class="chip oc">Open case</button><span class="small msg"></span></div></td></tr>`).join("")}</table>`
       : `<p class="muted">Nobody has stalled. Everyone is moving.</p>`}</div>`;
+  $("#remRun").onclick = async () => { const r = await API.post("/api/clinician/reminders/run"); $("#remMsg").textContent = `${r.sent} sent`; setTimeout(pathwayBoard, 800); };
   $$("#tab tr[data-id]").forEach(row => {
     const nd = row.querySelector(".nd");
     if (nd) nd.onclick = async () => { await API.post(`/api/clinician/cases/${row.dataset.id}/nudge`, { stage: row.dataset.stage }); row.querySelector(".msg").textContent = "Sent"; nd.disabled = true; };

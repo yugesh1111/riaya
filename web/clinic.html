@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Riaya Clinic Referral</title>
+<meta name="theme-color" content="#0f2a3a">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/app.css">
+<style>
+.cgrid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .cgrid { grid-template-columns: 1fr; } }
+.letter h3 { margin: 18px 0 6px; font-size: 1em; }
+.letter ul { margin: 0; padding-inline-start: 20px; }
+.withheld { border-inline-start: 4px solid var(--saffron); }
+.tag.ok { background: color-mix(in srgb, var(--good) 18%, transparent); }
+textarea, input[type=text], input[type=number], select { width: 100%; box-sizing: border-box; }
+.codein { font-size: 1.4em; letter-spacing: .12em; text-transform: uppercase; text-align: center; }
+</style>
+</head>
+<body data-no-hide="1">
+<header class="top"><div class="brand"><i></i>Riaya · Clinic referral <span class="muted" lang="ar" dir="rtl">· إحالة العيادة</span></div><div class="spacer"></div>
+  <button class="chip hidden" id="close">Close referral</button></header>
+<main class="wrap wide" id="view" style="max-width:1200px"></main>
+<script src="js/common.js"></script>
+<script src="js/clinic.js?v=2"></script>
+</body>
+</html>

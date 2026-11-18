@@ -65,6 +65,16 @@ CREATE TABLE IF NOT EXISTS consent_receipts (
 CREATE TABLE IF NOT EXISTS consultations (
   id TEXT PRIMARY KEY, assessment_id TEXT NOT NULL, clinician TEXT NOT NULL, created_at REAL NOT NULL,
   outcome BLOB NOT NULL, followup_at REAL, followup_done_at REAL);
+CREATE TABLE IF NOT EXISTS visit_questions (
+  assessment_id TEXT PRIMARY KEY, body BLOB NOT NULL, updated_at REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS finding_reviews (
+  id TEXT PRIMARY KEY, assessment_id TEXT NOT NULL, node TEXT NOT NULL, clinician TEXT NOT NULL, verdict TEXT NOT NULL,
+  reason TEXT, ts REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS visit_feedback (
+  assessment_id TEXT PRIMARY KEY, provider_id TEXT NOT NULL, respect INTEGER, privacy INTEGER, explained INTEGER,
+  recommend INTEGER, wait_days REAL, ts REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS clinic_access (
+  token_hash TEXT PRIMARY KEY, code TEXT NOT NULL, assessment_id TEXT NOT NULL, created_at REAL NOT NULL, expires_at REAL NOT NULL);
 """
 
 
@@ -93,6 +103,8 @@ MIGRATIONS = {
                   ("tests_done_at", "REAL"), ("followup_at", "REAL"), ("barrier", "TEXT"), ("self_reported", "INTEGER DEFAULT 0")],
     "messages": [("audio", "BLOB"), ("mime", "TEXT"), ("seconds", "REAL")],
     "sessions": [("last_seen", "REAL")],
+    "users": [("sharing_paused", "INTEGER DEFAULT 0"), ("retention_months", "INTEGER"), ("last_active", "REAL"), ("reminders", "INTEGER DEFAULT 1")],
+    "shares": [("scope", "TEXT"), ("purpose", "TEXT DEFAULT 'clinic'")],
 }
 
 

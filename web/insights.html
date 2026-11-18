@@ -130,6 +130,11 @@ async function load() {
           <table><tr><th>${name}</th><th>Men</th><th>Referred</th><th>Several signals</th><th>Reached a clinician</th></tr>
           ${rows.map(r => r.suppressed ? `<tr><td>${esc(GROUP[r.group] || r.group)}</td><td colspan="4" class="supp">Fewer than ${d.k_anonymity} men: hidden to protect privacy</td></tr>`
             : `<tr><td>${esc(GROUP[r.group] || r.group)}</td><td>${r.n}</td><td>${r.referred_pct}%</td><td>${r.high_pct}%</td><td>${r.attended_pct ?? "—"}%</td></tr>`).join("")}</table></div>`).join("")}</div></div>
+      <div class="panel wide"><h2>How men rated their visit</h2><p class="sub">Average of three 1–5 ratings after an attended visit, per clinic. Clinics with fewer than ${d.k_anonymity} ratings are hidden.</p>
+        ${(d.clinic_quality || []).length ? `<table><tr><th>Clinic</th><th>Ratings</th><th>Respect</th><th>Privacy kept</th><th>Explained clearly</th><th>Would recommend</th><th>Days to visit</th></tr>
+          ${d.clinic_quality.map(q => q.suppressed ? `<tr><td>${esc(q.clinic)}</td><td colspan="6" class="supp">Fewer than ${d.k_anonymity} ratings: hidden to protect privacy</td></tr>`
+            : `<tr><td>${esc(q.clinic)}</td><td>${q.n}</td><td>${q.respect}</td><td>${q.privacy}</td><td>${q.explained}</td><td>${q.recommend_pct}%</td><td>${q.avg_wait_days ?? "—"}</td></tr>`).join("")}</table>`
+          : `<p class="note">No ratings yet.</p>`}</div>
     </div>
     <p class="note">${d.includes_simulated ? "Includes simulated pilot cases generated from published effect sizes, with assumed booking and attendance rates; they are labelled in the clinician console. " : ""}Updated ${new Date(d.generated_at * 1000).toLocaleString("en-GB")}.</p>`;
   $("#sim").onchange = load;

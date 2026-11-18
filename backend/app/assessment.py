@@ -33,7 +33,9 @@ def run(answers, wearable=None, semen=None, with_models=True, labs=None):
         "wearable": wearable,
     }
     if with_models:
-        result["models"] = {"uci_logistic": ml.predict(answers), "simulated_gbm": synth.explain(answers, ins, wearable)}
+        from . import riayanet
+        result["models"] = {"uci_logistic": ml.predict(answers), "simulated_gbm": synth.explain(answers, ins, wearable),
+                            "riaya_net": riayanet.predict(answers, ins, wearable)}
     return result
 
 
@@ -85,10 +87,11 @@ def user_view(result, lang="en"):
     t = result["triage"]
     signal_words = {"low": {"en": "A few signals", "ar": "مؤشرات قليلة"},
                     "moderate": {"en": "Some signals worth acting on", "ar": "بعض المؤشرات التي تستحق الاهتمام"},
-                    "high": {"en": "Several signals — a check-up is a smart move", "ar": "عدة مؤشرات — الفحص خطوة ذكية"}}
+                    "high": {"en": "Several signals: a check-up is a smart move", "ar": "عدة مؤشرات: الفحص خطوة ذكية"}}
     return {
         "disclaimer": result["disclaimer"][lang],
         "summary": signal_words[t["tier"]][lang],
+        "tier": t["tier"],
         "next_step": t["message"][lang],
         "level": t["level"],
         "immediate": t["immediate"],

@@ -42,7 +42,7 @@ def build(answers, result, referral, reviewer=None):
 
     reason = [r["reason"] for r in t["reasons"]] or ["Self-referral for a men's reproductive-health check"]
     summary = [f"Age {answers.get('age')}", f"BMI {ins.get('bmi')}" if ins.get("bmi") else None,
-               f"STOP-Bang {ins.get('stop_bang')}/8", f"AUDIT-C {ins['audit_c']}/12" if "audit_c" in ins else None,
+               f"STOP-Bang {ins.get('stop_bang')}/8" if "stop_bang" in ins else None, f"AUDIT-C {ins['audit_c']}/12" if "audit_c" in ins else None,
                f"PSS-4 {ins['pss4']}/16" if "pss4" in ins else None, f"PHQ-2 {ins['phq2']}/6" if "phq2" in ins else None,
                f"ADAM {'positive' if ins.get('adam_positive') else 'negative'}" if "adam_positive" in ins else None]
     summary = [x for x in summary if x]

@@ -30,8 +30,8 @@ const STEPS = [
     opts: [o("general", "General check", "فحص عام", ["health", "صحة", "عام"]), o("future", "Planning ahead", "تخطيط للمستقبل", ["future", "later", "مستقبل", "زواج", "marriage"]),
            o("trying", "Trying for a child now", "نحاول الإنجاب الآن", ["trying", "baby", "child", "pregnan", "نحاول", "حمل", "طفل", "انجاب"]),
            o("fitness", "Energy / fitness", "الطاقة / اللياقة", ["gym", "energy", "fitness", "نادي", "طاقة", "رياضة"])] },
-  { id: "months_trying", type: "number", min: 0, max: 240, when: a => (a.reason || []).includes("trying"),
-    en: "How many months have you been trying?", ar: "منذ كم شهراً وأنتم تحاولون؟" },
+  { id: "months_trying", type: "number", months: true, min: 0, max: 240, when: a => (a.reason || []).includes("trying"),
+    en: "How long have you been trying? Months or years are both fine.", ar: "منذ متى وأنتم تحاولون؟ بالأشهر أو بالسنوات." },
   { id: "smoking", type: "choice", en: "Do you smoke cigarettes or vape?", ar: "هل تدخن السجائر أو السجائر الإلكترونية؟",
     opts: [o("never", "Never", "لا", ["no", "never", "ابدا", "ما ادخن", "لا ادخن"]), o("former", "I stopped", "أقلعت", ["quit", "stopped", "used to", "تركت", "اقلعت", "كنت"]),
            o("occasional", "Sometimes", "أحياناً", ["sometimes", "occasionally", "social", "احيانا", "مرات"]), o("daily", "Daily", "يومياً", ["daily", "every day", "yes", "يوميا", "كل يوم", "نعم", "اي"])] },
@@ -56,11 +56,15 @@ const STEPS = [
     opts: [o(0, "Rarely", "نادراً", ["no", "never", "rarely", "لا", "نادرا", "ابدا"]), o(1, "About weekly", "أسبوعياً", ["week", "اسبوع"]),
            o(2, "Several times a week", "عدة مرات أسبوعياً", ["often", "several", "daily", "every day", "كثير", "يوميا"])] },
   { id: "phq1", type: "choice", en: "In the last two weeks, how often have you had little interest or pleasure in things?", ar: "خلال الأسبوعين الماضيين، كم مرة شعرت بقلة الاهتمام أو المتعة؟",
-    opts: [o(0, "Not at all", "إطلاقاً", ["no", "never", "لا", "ابدا"]), o(1, "Some days", "بعض الأيام", ["some", "sometimes", "احيانا"]),
-           o(2, "More than half the days", "أكثر من نصف الأيام", ["often", "most", "كثير", "اغلب"]), o(3, "Nearly every day", "تقريباً كل يوم", ["every day", "always", "يوميا", "دايم", "دائما"])] },
+    opts: [o(0, "Not at all", "إطلاقاً", ["no", "never", "not at all", "none", "لا", "ابدا", "ولا مره", "ماشي"]),
+           o(1, "Some days", "بعض الأيام", ["some", "sometimes", "several days", "a few days", "few days", "احيانا", "بعض الايام", "كم يوم", "يومين"]),
+           o(2, "More than half the days", "أكثر من نصف الأيام", ["often", "most", "half", "more than half", "كثير", "واجد", "اغلب", "نص", "اكثر من النص"]),
+           o(3, "Nearly every day", "تقريباً كل يوم", ["every day", "nearly every day", "always", "all the time", "daily", "يوميا", "كل يوم", "طول الوقت", "دايم", "دائما"])] },
   { id: "phq2", type: "choice", en: "And feeling down or hopeless?", ar: "والشعور بالإحباط أو اليأس؟",
-    opts: [o(0, "Not at all", "إطلاقاً", ["no", "never", "لا", "ابدا"]), o(1, "Some days", "بعض الأيام", ["some", "sometimes", "احيانا"]),
-           o(2, "More than half the days", "أكثر من نصف الأيام", ["often", "most", "كثير", "اغلب"]), o(3, "Nearly every day", "تقريباً كل يوم", ["every day", "always", "يوميا", "دايم", "دائما"])] },
+    opts: [o(0, "Not at all", "إطلاقاً", ["no", "never", "not at all", "none", "لا", "ابدا", "ولا مره", "ماشي"]),
+           o(1, "Some days", "بعض الأيام", ["some", "sometimes", "several days", "a few days", "few days", "احيانا", "بعض الايام", "كم يوم", "يومين"]),
+           o(2, "More than half the days", "أكثر من نصف الأيام", ["often", "most", "half", "more than half", "كثير", "واجد", "اغلب", "نص", "اكثر من النص"]),
+           o(3, "Nearly every day", "تقريباً كل يوم", ["every day", "nearly every day", "always", "all the time", "daily", "يوميا", "كل يوم", "طول الوقت", "دايم", "دائما"])] },
   { id: "rf_any", type: "yesno", en: "Last one. Right now, do you have sudden testicle pain or swelling, a new lump, blood in your semen, or thoughts of harming yourself?",
     ar: "آخر سؤال. هل لديك الآن ألم أو تورم مفاجئ في الخصية، أو كتلة جديدة، أو دم في السائل المنوي، أو أفكار لإيذاء نفسك؟", opts: YN },
   { id: "red_flags", type: "choice", multi: true, when: a => a.rf_any === "yes", en: "Which one? Tap all that apply.", ar: "أيّها؟ اختر كل ما ينطبق.",
@@ -119,7 +123,7 @@ function ask() {
 function interpret(q, text) {
   if (q.type === "number") {
     if (NLU.yesNo(text, false) === "skip") return "skip";
-    const n = NLU.number(text);
+    const n = q.months ? NLU.months(text) : NLU.number(text);
     return n != null && n >= q.min && n <= q.max ? n : null;
   }
   if (q.type === "yesno") return NLU.yesNo(text, (q.opts || []).some(x => x.value === "unsure"));

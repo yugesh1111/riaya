@@ -38,7 +38,7 @@ STEPS = [
      "opts": [("general", "General check", "فحص عام"), ("future", "Planning ahead", "تخطيط للمستقبل"),
               ("trying", "Trying for a child now", "نحاول الإنجاب الآن"), ("fitness", "Energy / fitness", "الطاقة / اللياقة")]},
     {"id": "months_trying", "num": (0, 240), "when": lambda a: "trying" in (a.get("reason") or []),
-     "en": "How many months have you been trying?", "ar": "منذ كم شهراً وأنتم تحاولون؟"},
+     "en": "How long have you been trying? (e.g. 8 months or 2 years)", "ar": "منذ متى وأنتم تحاولون؟ (مثلاً ٨ أشهر أو سنتين)"},
     {"id": "smoking", "en": "Cigarettes or vaping?", "ar": "السجائر أو السجائر الإلكترونية؟",
      "opts": [("never", "Never", "أبداً"), ("former", "I stopped", "أقلعت"), ("occasional", "Sometimes", "أحياناً"), ("daily", "Daily", "يومياً")]},
     {"id": "waterpipe", "en": "Shisha, midwakh or dokha?", "ar": "الشيشة أو المدواخ أو الدوخة؟",
@@ -101,10 +101,28 @@ def _num(text):
     return float(m.group(0).replace(",", ".")) if m else None
 
 
+YEARS = ("year", "yr", "سنة", "سنه", "سنين", "سنوات", "عام", "اعوام", "أعوام")
+TWO_YEARS = ("سنتين", "سنتان", "عامين")
+HALF = ("half", "نص", "نصف")
+
+
+def _months(text):
+    """'18', '2 years', 'سنة ونص', 'سنتين' -> months. A bare number means months."""
+    t = text.lower().translate(AR_DIGITS)
+    half = 0.5 if any(h in t for h in HALF) else 0
+    if any(w in t for w in TWO_YEARS):
+        return (2 + half) * 12
+    if any(w in t for w in YEARS):
+        n = _num(t)
+        return round(((n if n is not None else 1) + half) * 12)
+    n = _num(t)
+    return n + half if n is not None else None
+
+
 def _create_session(c, st):
     token, uid, aid = security.new_token(), str(uuid.uuid4()), str(uuid.uuid4())
     now = time.time()
-    c.execute("INSERT INTO users VALUES (?,?,?,?)", (uid, security.token_hash(token), now, st["lang"]))
+    c.execute("INSERT INTO users (id, token_hash, created_at, lang) VALUES (?,?,?,?)", (uid, security.token_hash(token), now, st["lang"]))
     for p, v in (("core", 1), ("clinician_review", int(st["review"])), ("wearables", 0), ("research", 0)):
         c.execute("INSERT INTO consents VALUES (?,?,?,?,?)", (uid, p, v, "1.0", now))
     c.execute("INSERT INTO assessments (id, user_id, started_at, channel) VALUES (?,?,?,?)", (aid, uid, now, "whatsapp"))
@@ -162,7 +180,7 @@ def handle(key, text, base_url, submit, erase):
             if low in SKIP and step.get("skip"):
                 value = None
             else:
-                n = _num(low)
+                n = _months(low) if step["id"] == "months_trying" else _num(low)
                 lo, hi = step["num"]
                 if n is None or not lo <= n <= hi:
                     return [T[L]["num"], _q(step, L)]

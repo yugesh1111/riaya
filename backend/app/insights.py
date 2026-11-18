@@ -6,7 +6,7 @@ import statistics
 import time
 from datetime import datetime, timezone
 
-from . import security
+from . import security, visit
 from .knowledge import graph
 
 K = 5
@@ -100,7 +100,7 @@ def build(c, include_simulated=False):
         "weekly": [{"week": k, "n": v} for k, v in sorted(weekly.items()) if v >= K or include_simulated],
         "levels": count(lambda r: refs[r["id"]]["final_level"] if r["id"] in refs and refs[r["id"]]["final_level"] else r["level"]),
         "channels": count(lambda r: (r["channel"] or "web") if (r["channel"] or "web") != "sample" else "web"),
-        "by_age": groups(0), "by_background": groups(1),
+        "by_age": groups(0), "by_background": groups(1), "clinic_quality": visit.clinic_quality(c, K),
     }
 
 
