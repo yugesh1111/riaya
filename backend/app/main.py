@@ -212,7 +212,7 @@ def _access(actor, action, aid):
 # ------------------------------------------------------------------ public reference data
 @app.get("/api/health")
 def health():
-    return {"ok": True}
+    return {"ok": True, "feedback_store": "postgres" if pgstore.enabled() else "local"}
 
 
 @app.get("/api/config")
