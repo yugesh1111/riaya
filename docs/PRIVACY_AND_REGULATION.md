@@ -26,3 +26,18 @@ Confirm with legal counsel before the pilot. This is the team's reading, not leg
 - Hosting in UAE (UAE-region cloud approved under ADHICS, or on-premise at the partner facility). Postgres with column encryption and KMS-managed keys.
 - SSO for clinicians (UAE PASS / facility IdP), role-based access, and periodic access review.
 - DPIA, penetration test, ADHICS certification through the hosting partner.
+
+
+## On the phone: lock, encryption and disguise (added November 2026)
+
+| Control | How it works |
+|---|---|
+| Locked by default | After his first summary Riaya requires a 4–6 digit PIN. Every opening and every return after 15 seconds away shows the lock first. Face ID / Touch ID / fingerprint can unlock it (WebAuthn platform authenticator with user verification, checked on the phone). |
+| PIN storage | Never stored. Only PBKDF2-SHA-256 (210,000 iterations, random 16-byte salt). Five wrong tries pause input for 30 s, then longer. |
+| Documents on the phone | Scanned reports are kept only on the phone (IndexedDB), encrypted with AES-256-GCM. The key is generated on the phone as a non-extractable WebCrypto key and is used only while the app is unlocked. |
+| Disguise | `/calc.html` installs as "Calculator" with a calculator icon and works as a calculator. The PIN followed by "=" opens Riaya. Installed apps cannot change their icon later, so the disguise is chosen at install. |
+| Forgotten PIN | He can erase Riaya from the phone; his record can be restored with his recovery code. Riaya cannot reset the PIN for him, by design. |
+| Clinicians | The console has its own PIN lock for shared computers; clinician sessions also end when the tab closes. |
+| What travels | WhatsApp and reminders carry only neutral text and one-time codes, never results. Reports he scans stay on the phone; only the values he confirms are sent, encrypted at rest on the server. |
+
+Limits, stated plainly: a web-app lock protects against someone picking up an unlocked phone and against casual inspection; it is not a replacement for the phone's own passcode. Anyone with the phone's own unlock and developer tools could still delete data. The production plan keeps one encrypted server database owned by the programme (see the roadmap).

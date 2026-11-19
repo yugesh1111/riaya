@@ -68,6 +68,10 @@ Works in any browser and installs as an app on **iPhone and Android** (PWA). Ara
 | 50 | Retention he chooses | Until he deletes, or 3–24 months after his last visit, then erased | Privacy | ✅ |
 | 51 | Access log and consent receipts | Who opened his record, and a receipt for every permission given or withdrawn | Privacy | ✅ |
 | 52 | Privacy screen | One tap covers the app with a neutral wellness card; blurs when he switches apps | Every page | ✅ |
+| 52a | Locked by default | After his first summary Riaya asks for a 4–6 digit PIN (Face ID / fingerprint optional). Every opening, and every return after 15 s away, shows the lock first; the PIN is kept only as a salted PBKDF2 hash; 5 wrong tries pause input | Every page | ✅ |
+| 52b | Encrypted documents on the phone | Scanned reports and files are encrypted with AES-256-GCM using a key that cannot be exported from the browser; they open only while unlocked | My lab results | ✅ |
+| 52c | Calculator disguise | Install Riaya as "Calculator" with a calculator icon; it is a working calculator, and his PIN then "=" opens Riaya | Privacy → Disguise, `/calc.html` | ✅ |
+| 52d | Doctors sign in from the same app | "I'm a doctor" on the start screen opens the clinician console, which has its own PIN lock for shared computers | `/` → I'm a doctor | ✅ |
 | 53 | Encryption, export, delete | Encrypted at rest; download everything; delete everything | Privacy | ✅ |
 | **For the health authority** |||||
 | 54 | Programme dashboard | k-anonymised funnel, time to care, drivers, fairness, clinic ratings, **30+ day outcomes** (engagement, WHO-5 change) | `/insights.html` | ✅ |

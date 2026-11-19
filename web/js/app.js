@@ -117,6 +117,8 @@ function welcome() {
         <p class="sample-row"><button class="btn ghost" id="sample">${LANG === "ar" ? "▶ جولة في فحص تجريبي" : "▶ Take a guided tour of a sample check"}</button>
           <span class="muted small">${LANG === "ar" ? "دقيقتان: كل خطوة بإجابات رجل تجريبي، دون إدخال أي بيانات." : "Two minutes: every step with a sample man's answers, without typing anything."}</span></p>
         ${resumable ? `<button class="chip" id="fresh">${t("restart")}</button>` : ""}
+        <p class="who-row small"><a href="clinician.html" class="docin">🩺 ${LANG === "ar" ? "أنا طبيب: ادخل إلى مرضاك" : "I'm a doctor: sign in to my patients"}</a>
+          <span class="muted">·</span> <a href="#" id="restoreLink2">${LANG === "ar" ? "لدي رمز استرداد" : "I have a recovery code"}</a></p>
       </div>
       <div class="screen" aria-hidden="true">${LATTICE}${DEVICE()}</div>
     </div>
@@ -134,6 +136,7 @@ function welcome() {
   $("#go").onclick = () => { document.body.classList.remove("landing"); resumable ? intake() : consent(); };
   $("#watch").onclick = () => { document.body.classList.remove("landing"); passiveStart(); };
   $("#sample").onclick = () => { document.body.classList.remove("landing"); window.Tour ? Tour.start() : startSample(); };
+  if ($("#restoreLink2")) $("#restoreLink2").onclick = e => { e.preventDefault(); document.body.classList.remove("landing"); renderRestore(); };
   if ($("#restoreLink")) $("#restoreLink").onclick = e => { e.preventDefault(); document.body.classList.remove("landing"); renderRestore(); };
   if ($("#fresh")) $("#fresh").onclick = () => { ["aid", "draft", "done"].forEach(store.del); S.answers = {}; S.aid = null; document.body.classList.remove("landing"); consent(); };
   API.get("/api/graph").then(g => {
@@ -574,6 +577,7 @@ function renderResult() {
     view().innerHTML = `<div class="card"><h2>${t("deleted")}</h2><button class="btn" onclick="welcome()">${t("start")}</button></div>`;
   };
   $("#again").onclick = () => { ["aid", "draft", "done"].forEach(store.del); S.answers = {}; S.aid = null; consent(); };
+  setTimeout(() => { if (window.Lock) Lock.guard(); }, 1200);
 }
 
 boot();
@@ -683,8 +687,10 @@ async function renderPrivacy() {
   rerender = renderPrivacy;
   setWide(false);
   const c = await API.get("/api/consent");
+  const lockCard = window.Lock ? await Lock.settingsCard() : "";
   const box = (id, text, on) => `<label class="check"><input type="checkbox" id="${id}" ${on ? "checked" : ""}><div>${text}</div></label>`;
   view().innerHTML = `<h1>${pv("title")}</h1><p class="lead">${pv("sub")}</p>
+    ${lockCard}${window.disguiseCard ? disguiseCard() : ""}
     <div class="card">${box("pvReview", pv("review"), c.clinician_review)}<p class="muted small" id="pvWarn" style="display:none">${pv("reviewOff")}</p>
       ${box("pvDev", pv("devices"), c.wearables)}${box("pvRes", pv("research"), c.research)}
       <p class="row"><button class="btn" id="pvSave">${pv("save")}</button><span class="small" id="pvMsg"></span></p></div>
@@ -693,6 +699,7 @@ async function renderPrivacy() {
     <div class="card"><h2>${pv("exportT")}</h2><p class="muted small">${pv("exportS")}</p><button class="btn ghost" id="pvExport">${pv("exportB")}</button></div>
     <div class="card"><h3>${t("delTitle")}</h3><p class="muted small">${t("delSub")}</p><button class="btn danger" id="pvDel">${t("delBtn")}</button></div>`;
   $("#pvReview").onchange = e => $("#pvWarn").style.display = e.target.checked ? "none" : "block";
+  if (window.Lock) Lock.wireCard(view(), renderPrivacy);
   if (window.renderSharing) renderSharing().catch(() => {});
   $("#pvSave").onclick = async () => {
     try {

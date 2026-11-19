@@ -40,7 +40,7 @@ const gradeTag = g => `<span class="grade g${g}">${g}</span>`;
     .pcover .tip { max-width: 360px; text-align: center; color: var(--ink, #0f2a3a); font: 400 17px/1.6 system-ui, sans-serif; }
     .pcover .tip b { display: block; font-size: 22px; margin-bottom: 8px; }
     .pcover button { margin-top: 22px; background: transparent; border: 1px solid var(--line, #d9dbd5); border-radius: 10px; padding: 10px 18px; color: inherit; font: inherit; }
-    body.pblur > *:not(.pcover):not(.hidebtn) { filter: blur(18px); }
+    body.pblur > *:not(.pcover):not(.hidebtn):not(.lk) { filter: blur(18px); }
     .hidebtn { position: fixed; bottom: 16px; inset-inline-start: 16px; z-index: 98; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line, #d9dbd5);
       background: var(--surface, #fff); color: var(--ink, #0f2a3a); display: grid; place-items: center; cursor: pointer; }
     body.has-dock .hidebtn { bottom: 150px; }`;

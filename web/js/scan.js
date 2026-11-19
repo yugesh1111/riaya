@@ -8,12 +8,12 @@
           add: "Add a page", camera: "Take photo", done: n => `Read ${n} page${n === 1 ? "" : "s"}`, cancel: "Cancel", remove: "Remove page",
           page: i => `Page ${i}`, ocr: (i, n, p) => `Reading page ${i} of ${n}… ${p}%`, saving: "Saving the document on this phone…",
           docs: "Reports saved on this phone", none: "No scanned reports yet.", open: "Open", del: "Delete", pages: n => `${n} page${n === 1 ? "" : "s"}`,
-          onPhone: "Kept only on this phone. Never uploaded.", enhance: "Auto-enhanced for reading" },
+          onPhone: "Kept only on this phone. Never uploaded.", enhance: "Auto-enhanced for reading", encrypted: "Encrypted (AES-256); opens only after you unlock Riaya." },
     ar: { title: "امسح تقريرك", sub: "التقط صورة لكل صفحة. أمسك الهاتف مستوياً فوق الصفحة في إضاءة جيدة.",
           add: "أضف صفحة", camera: "التقط صورة", done: n => `اقرأ ${n} ${n === 1 ? "صفحة" : "صفحات"}`, cancel: "إلغاء", remove: "احذف الصفحة",
           page: i => `صفحة ${i}`, ocr: (i, n, p) => `جارٍ قراءة الصفحة ${i} من ${n}… ${p}٪`, saving: "جارٍ حفظ المستند على هذا الهاتف…",
           docs: "تقارير محفوظة على هذا الهاتف", none: "لا توجد تقارير ممسوحة بعد.", open: "افتح", del: "احذف", pages: n => `${n} ${n === 1 ? "صفحة" : "صفحات"}`,
-          onPhone: "محفوظة على هذا الهاتف فقط. لا تُرفع أبداً.", enhance: "حُسّنت تلقائياً للقراءة" },
+          onPhone: "محفوظة على هذا الهاتف فقط. لا تُرفع أبداً.", enhance: "حُسّنت تلقائياً للقراءة", encrypted: "مشفّرة (AES-256)؛ لا تُفتح إلا بعد فتح قفل رعاية." },
   };
   const L = () => (typeof LANG !== "undefined" && LANG === "ar" ? "ar" : "en");
   const x = k => T[L()][k];
@@ -111,7 +111,8 @@
             pdf.addImage(c.toDataURL("image/jpeg", .8), "JPEG", (W - c.width * k) / 2, (H - c.height * k) / 2, c.width * k, c.height * k);
           });
           id = "doc-" + Date.now();
-          await saveDoc({ id, created: Date.now(), date: null, pages: pages.length, pdf: pdf.output("blob") });
+          const blob = pdf.output("blob");
+          await saveDoc({ id, created: Date.now(), date: null, pages: pages.length, pdf: root.Lock ? await root.Lock.encryptBlob(blob) : blob });
         } catch { /* the values still get read even if the PDF could not be stored */ }
         close();
         onText(texts.join("\n"), id);
@@ -126,12 +127,14 @@
     const docs = (await listDocs()).sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.created - a.created);
     const fmt = d => d.date ? new Date(d.date + "T00:00:00").toLocaleDateString(L() === "ar" ? "ar-AE" : "en-GB", { day: "numeric", month: "long", year: "numeric" })
       : new Date(d.created).toLocaleDateString(L() === "ar" ? "ar-AE" : "en-GB", { day: "numeric", month: "long", year: "numeric" });
-    host.innerHTML = `<div class="card"><h3>📄 ${esc(x("docs"))}</h3><p class="small muted">🔒 ${esc(x("onPhone"))}</p>
+    host.innerHTML = `<div class="card"><h3>📄 ${esc(x("docs"))}</h3><p class="small muted">🔒 ${esc(x("onPhone"))} ${esc(x("encrypted"))}</p>
       ${docs.length ? `<ul class="scan-docs">${docs.map(d => `<li><span><b>${esc(fmt(d))}</b> <span class="muted small">${esc(x("pages")(d.pages))}</span></span>
         <span class="row"><button class="chip" data-open="${d.id}">${esc(x("open"))}</button><button class="chip" data-docx="${d.id}">${esc(x("del"))}</button></span></li>`).join("")}</ul>`
         : `<p class="small muted">${esc(x("none"))}</p>`}</div>`;
     host.querySelectorAll("[data-open]").forEach(b => b.onclick = async () => {
-      const d = docs.find(v => v.id === b.dataset.open); if (d) window.open(URL.createObjectURL(d.pdf), "_blank", "noopener");
+      const d = docs.find(v => v.id === b.dataset.open); if (!d) return;
+      const blob = root.Lock ? await root.Lock.decryptBlob(d.pdf) : d.pdf;
+      if (blob) window.open(URL.createObjectURL(blob), "_blank", "noopener");
     });
     host.querySelectorAll("[data-docx]").forEach(b => b.onclick = async () => { await delDoc(b.dataset.docx); docsCard(host); });
   }

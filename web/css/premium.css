@@ -263,3 +263,8 @@ html, body { overflow-x: clip; }
 .wdots { position: absolute; bottom: 18px; left: 0; right: 0; display: flex; justify-content: center; gap: 4px; }
 .wdots i { width: 5px; height: 5px; border-radius: 50%; background: #555; transition: background .3s; } .wdots i.on { background: #fff; }
 @media (prefers-reduced-motion: reduce) { .watch, .wface, .wpane, .wring { transition: none; } }
+
+/* who is signing in */
+.who-row { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.who-row a { color: var(--ink); text-underline-offset: 3px; }
+.who-row .docin { font-weight: 600; }

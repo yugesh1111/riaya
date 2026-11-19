@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Calculator</title>
+<link rel="manifest" href="manifest-calc.webmanifest">
+<meta name="theme-color" content="#1c1c1e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Calculator">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon" href="icons/calc-192.png">
+<link rel="icon" href="icons/calc-192.png">
+<style>
+  /* A plain, working calculator. Typing the Riaya PIN and then "=" opens Riaya. Nothing on this screen mentions health. */
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; background: #1c1c1e; color: #fff; font-family: -apple-system, "Segoe UI", Roboto, system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; justify-content: flex-end; max-width: 420px; margin: 0 auto; padding: 16px 16px max(20px, env(safe-area-inset-bottom)); }
+  .screen { text-align: right; font-size: clamp(48px, 18vw, 76px); font-weight: 300; padding: 0 10px 14px; overflow: hidden; white-space: nowrap; text-overflow: clip; min-height: 1.2em; direction: ltr; }
+  .expr { text-align: right; color: #8e8e93; font-size: 20px; min-height: 26px; padding: 0 12px; direction: ltr; }
+  .keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; direction: ltr; }
+  button { aspect-ratio: 1; border: 0; border-radius: 50%; font-size: 28px; color: #fff; background: #333336; cursor: pointer; font-family: inherit; }
+  button:active { filter: brightness(1.35); }
+  button:focus-visible { outline: 3px solid #ff9f0a; outline-offset: 2px; }
+  .fn { background: #a5a5aa; color: #000; } .op { background: #ff9f0a; } .op.on { background: #fff; color: #ff9f0a; }
+  .zero { grid-column: span 2; aspect-ratio: auto; border-radius: 999px; text-align: left; padding-left: 30px; }
+</style>
+</head>
+<body>
+  <div class="expr" id="expr" aria-live="polite"></div>
+  <div class="screen" id="out" role="status" aria-live="polite">0</div>
+  <div class="keys">
+    <button class="fn" data-k="C">AC</button><button class="fn" data-k="±">±</button><button class="fn" data-k="%">%</button><button class="op" data-k="/" aria-label="divide">÷</button>
+    <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button><button class="op" data-k="*" aria-label="multiply">×</button>
+    <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button><button class="op" data-k="-" aria-label="minus">−</button>
+    <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button><button class="op" data-k="+" aria-label="plus">+</button>
+    <button class="zero" data-k="0">0</button><button data-k=".">.</button><button class="op" data-k="=" aria-label="equals">=</button>
+  </div>
+<script>
+(function () {
+  const out = document.getElementById("out"), expr = document.getElementById("expr");
+  let cur = "0", acc = null, op = null, fresh = true, typed = "";
+  const fmt = v => { if (!isFinite(v)) return "Error"; const s = String(+v.toPrecision(12)); return s.length > 12 ? (+v).toExponential(6) : s; };
+  const calc = (a, b, o) => o === "+" ? a + b : o === "-" ? a - b : o === "*" ? a * b : o === "/" ? a / b : b;
+  const show = () => { out.textContent = cur; document.querySelectorAll(".op").forEach(b => b.classList.toggle("on", b.dataset.k === op && fresh)); };
+
+  // Riaya's lock stores only a salted PBKDF2 hash of the PIN; the same check runs here.
+  async function isPin(digits) {
+    let s; try { s = JSON.parse(localStorage.getItem("riaya_lock") || "null"); } catch { return false; }
+    if (!s || !/^\d{4,6}$/.test(digits)) return false;
+    const enc = new TextEncoder(), salt = Uint8Array.from(atob(s.salt), c => c.charCodeAt(0));
+    const k = await crypto.subtle.importKey("raw", enc.encode(digits), "PBKDF2", false, ["deriveBits"]);
+    const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: 210000 }, k, 256);
+    return btoa(String.fromCharCode(...new Uint8Array(bits))) === s.hash;
+  }
+
+  async function press(k) {
+    if (/^\d$/.test(k)) { typed = (typed + k).slice(-6); cur = fresh || cur === "0" ? k : (cur + k).slice(0, 12); fresh = false; }
+    else if (k === ".") { typed = ""; if (fresh) { cur = "0."; fresh = false; } else if (!cur.includes(".")) cur += "."; }
+    else if (k === "C") { cur = "0"; acc = null; op = null; fresh = true; typed = ""; expr.textContent = ""; }
+    else if (k === "±") { typed = ""; cur = fmt(-parseFloat(cur)); }
+    else if (k === "%") { typed = ""; cur = fmt(parseFloat(cur) / 100); }
+    else if ("+-*/".includes(k)) {
+      typed = "";
+      if (op && !fresh) { acc = calc(acc, parseFloat(cur), op); cur = fmt(acc); } else acc = parseFloat(cur);
+      op = k; fresh = true; expr.textContent = `${fmt(acc)} ${{ "+": "+", "-": "−", "*": "×", "/": "÷" }[k]}`;
+    } else if (k === "=") {
+      if (!op && typed.length >= 4 && await isPin(typed)) {
+        try { sessionStorage.setItem("riaya_lock_open", "1"); } catch {}
+        location.replace("index.html");
+        return;
+      }
+      typed = "";
+      if (op) { const b = parseFloat(cur); expr.textContent = `${fmt(acc)} ${{ "+": "+", "-": "−", "*": "×", "/": "÷" }[op]} ${fmt(b)} =`; cur = fmt(calc(acc, b, op)); acc = null; op = null; fresh = true; }
+    }
+    show();
+  }
+  document.querySelectorAll("[data-k]").forEach(b => b.onclick = () => press(b.dataset.k));
+  document.addEventListener("keydown", e => {
+    const m = { Enter: "=", Escape: "C", Backspace: "C" }[e.key] || e.key;
+    if (/^[\d.+\-*/=%]$/.test(m) || m === "C") { e.preventDefault(); press(m); }
+  });
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+})();
+</script>
+</body>
+</html>

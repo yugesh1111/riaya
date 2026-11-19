@@ -14,7 +14,7 @@ function login() {
   $("#go").onclick = async () => {
     try {
       const r = await API.post("/api/clinician/login", { username: $("#u").value, password: $("#p").value });
-      API.token = r.token; sessionStorage.setItem("ctoken", r.token); $("#who").textContent = r.name; start();
+      API.token = r.token; sessionStorage.setItem("ctoken", r.token); $("#who").textContent = r.name; start(); if (window.Lock) Lock.guard();
     } catch (e) { $("#err").textContent = e.message; }
   };
 }

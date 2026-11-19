@@ -93,6 +93,10 @@ Every line was checked against the app's own language understanding. Five answer
 | | 5.6 Referral loop | Doctor approves in the console → he books → **Call / WhatsApp / Save contact** → clinic portal with handover code → visit summary → journey updates | "From first check to specialist, and back" |
 | | 5.7 Closed loop | Coordinator board: early warning, escalations, FHIR Task status | "Time limits by urgency. FHIR R4 Task. Nobody gets lost." |
 | | 5.8 Privacy | One switch pauses all sharing; "see exactly what they'll see" letter updating live; access log | "He decides who sees what. One switch stops it all." |
+| | 5.8a Locked by default | Set a PIN after the summary → switch apps → come back: the lock screen, nothing readable; a wrong PIN shakes; Face ID opens it | "Picked up his phone by mistake? They see nothing." |
+| | 5.8b The calculator | Home screen shows "Calculator" → do 12 + 30 = 42 → type the PIN, = → Riaya opens | "Hidden in plain sight" |
+| | 5.8c Encrypted reports | Scanned report in "Reports saved on this phone": encrypted, opens only while unlocked | "Reports never leave his phone. AES-256." |
+| | 5.8d Doctors too | "I'm a doctor" on the start screen → console with its own PIN | "One app. Patients and doctors." |
 | | 5.9 For the health authority | Programme dashboard: funnel, fairness, **30+ day outcomes** | "k-anonymised. Groups under 5 hidden." |
 | 3:30 | **6. Works with** | Logo-free icon row | "iPhone · Android · Apple Watch · Wear OS · Garmin · WhatsApp · FHIR R4 · Arabic + English" |
 | 3:45 | **7. Close** | Riaya wordmark | "Riaya. Care that starts in private." |
