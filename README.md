@@ -1,8 +1,78 @@
-# Riaya (رعاية): a private front door to men's reproductive health
+<div align="center">
 
-A privacy-first, Arabic-first pre-screen that helps men in Abu Dhabi understand and act on reproductive-health signals early. It routes each man to the right level of care, with a clinician approving every referral. It is built to plug into the IFHAS reproductive-health screening module.
+<img src="web/icons/icon-512.png" width="96" alt="Riaya icon">
 
-## All features at a glance
+# Riaya · رعاية
+### A private front door to men's reproductive health
+
+**Arabic-first · voice-first · locked by default · built for Abu Dhabi**
+
+[**Try it live**](https://riaya-xhby.onrender.com) · [Download Android & Mac apps](https://github.com/yugesh1111/riaya/releases/tag/v1.0.0) · [Impact simulator](https://riaya-xhby.onrender.com/impact.html) · [Privacy map](https://riaya-xhby.onrender.com/privacy-map.html) · [Security](docs/SECURITY.md)
+
+</div>
+
+> In the UAE, a man's side of fertility is usually looked at last, often after a year or more of trying, and many men never talk about it at all. Riaya lets him check privately in three minutes, by voice in Gulf Arabic or English. It explains what it found and shows what to change first. A doctor approves every referral, the specialist sends the visit summary back, and he controls who sees what at every step.
+
+<p align="center">
+  <img src="docs/shots/03-landing-phone-ar.png" width="19%" alt="Landing, Arabic">
+  <img src="docs/shots/05-voice-understood-en.png" width="19%" alt="Voice check">
+  <img src="docs/shots/07-summary.png" width="19%" alt="Summary">
+  <img src="docs/shots/10-gym-product-checker.png" width="19%" alt="Gym product checker">
+  <img src="docs/shots/21-calculator-cover.png" width="19%" alt="Calculator cover">
+</p>
+
+## 🏆 Why Riaya stands out: the top 12, ranked
+
+| Rank | Feature | Why it matters |
+|:-:|---|---|
+| 1 | **Calculator cover + locked by default** | Picked up by mistake, it's a calculator. His PIN then "=" opens Riaya. Built for a subject men hide. |
+| 2 | **Talk it through, in Gulf Arabic** | Speaks and listens in Emirati, Saudi, Egyptian and Levantine Arabic, and English. Understands "سنة ونص" = 18 months. Can run fully on the phone. |
+| 3 | **Encrypted vault, re-confirm per document** | Reports never leave his phone (AES-256). Each one asks for Face ID again before it opens. Doctors have their own vault. |
+| 4 | **He is told every time his record is opened** | A private message whenever a doctor or clinic opens his summary, labs or referral, plus one switch that pauses all sharing. |
+| 5 | **Gym product checker** | Photograph a supplement label. Testosterone, steroids and SARMs are flagged because they switch off sperm production, a common and reversible cause in young men who train. |
+| 6 | **Prescriptive + predictive** | His best three changes (effect × evidence ÷ effort), a 12-week projection, and lab trends forecast to his next test with early alerts. |
+| 7 | **Closed-loop referral** | Doctor approves → he books, calls or WhatsApps the clinic → the specialist sends the summary back. Deadlines by urgency, escalation, and the referral published as a FHIR R4 Task. |
+| 8 | **Explainable, never a black box** | Every finding shows what we saw, why it matters (evidence graded A–D, 95 sources), what helps and its limits. Guardrails for urgent symptoms, doses and "am I infertile?". |
+| 9 | **Behaviour change that lasts** | 12-week companion on COM-B and BCT Taxonomy v1: WHO-5 at day 0/30/84, well-timed nudges, a fresh start after a lapse, Ramadan mode. |
+| 10 | **Watch first + UAE heat guard** | Apple Watch / Wear OS / Garmin data first. Today's heat in his emirate becomes one tip, and his location never leaves the phone. |
+| 11 | **Impact simulator for the health authority** | "Offer it to 20,000 men → ~1,470 more men assessed a year, ~2,310 years of waiting removed", with every assumption visible and adjustable. |
+| 12 | **Runs everywhere** | Web app on iPhone, Android APK, Mac app, WhatsApp. Doctors use the same app. Accessibility check (WCAG 2.2 AA) passes on the main pages. |
+
+## 🔒 Privacy, side by side
+
+<p align="center"><img src="docs/shots/28-privacy-map.png" width="92%" alt="Privacy by design: five layers"></p>
+
+| 📱 On his phone | 🔒 What may leave it | 👥 Who sees what | 🔔 He is always told | 🗄 On the server |
+|---|---|---|---|---|
+| Locked by default (PIN · Face ID · fingerprint) | No identity: a random token, not a name | Choose what each recipient sees | Access alerts every time a doctor opens his record | Encrypted at rest; keys outside the database |
+| Calculator cover (PIN then =) | Only lab values he confirms, never the photo | See the letter word for word before sharing | Access log: who, what, when | Content Security Policy, HSTS, no framing |
+| Encrypted vault, Face ID per document | WhatsApp carries codes and neutral reminders only | One switch pauses all sharing | Consent receipts | Brute-force limits on sign-in and codes |
+| Privacy screen in the app switcher | Calendar entries say only "Appointment" | Expiring second-opinion codes (1, 3 or 7 days) | Every doctor action logged | Retention he chooses (3–24 months) |
+| On-phone speech and photo reading | Heat by emirate, never GPS | Health authority sees groups of 5+ only | | Export or delete everything, any time |
+
+## 🎬 Screens
+
+| | | | |
+|:-:|:-:|:-:|:-:|
+| <img src="docs/shots/04-voice-start-en.png" width="180"><br>Voice: language and accent | <img src="docs/shots/18-lock-iphone.png" width="180"><br>iPhone-style lock | <img src="docs/shots/19-lock-android.png" width="180"><br>Samsung-style lock | <img src="docs/shots/20-cover-choice.png" width="180"><br>Choose the cover |
+| <img src="docs/shots/16-vault.png" width="180"><br>Encrypted vault | <img src="docs/shots/11-heat-guard.png" width="180"><br>UAE heat guard | <img src="docs/shots/13-watch-preview.png" width="180"><br>On your wrist | <img src="docs/shots/06-voice-start-ar.png" width="180"><br>Arabic first |
+| <img src="docs/shots/23-coordinator-closed-loop.png" width="180"><br>Closed-loop board | <img src="docs/shots/25-programme-dashboard.png" width="180"><br>Programme dashboard | <img src="docs/shots/26-impact-simulator.png" width="180"><br>Impact simulator | <img src="docs/shots/27-feature-map.png" width="180"><br>How it works |
+
+## ✅ Proof it works
+
+| Check | Result |
+|---|---|
+| Automated API tests | **79 pass** (`backend/tests`) |
+| Red flags escalated | **5 / 5** (`validation/SCENARIOS.md`) |
+| Adversarial questions caught by guardrails | **30 / 30** |
+| Unsupported claims in companion answers | **0 / 78** |
+| Consent and revocation checks | **15 / 15** |
+| Voice demo: recorded answers recognised on the phone (English) | **19 / 19** |
+| Accessibility (axe-core, WCAG 2.2 AA) | **No violations** on the main pages |
+| Real usability testing (System Usability Scale) | Live at [/tester.html](https://riaya-xhby.onrender.com/tester.html); results on the dashboard |
+
+
+## 📋 Every feature, by category
 
 Riaya works in any browser and installs on **iPhone, Android and Mac**: as a web app from the browser, as an Android APK, or as a Mac app (DMG). It is Arabic first and fully in English too. Status: ✅ working and tested · 🟡 ready but not connected to a real-world service.
 
@@ -25,6 +95,7 @@ Riaya works in any browser and installs on **iPhone, Android and Mac**: as a web
 | S14 | Server hardening | Encrypted at rest, strict Content Security Policy, HSTS, no framing, limits on wrong sign-ins and codes, no caching of health data | ✅ |
 | S15 | Second-opinion codes | He picks the parts to share and how long the code lasts (1, 3 or 7 days); view only | ✅ |
 | S16 | Export and delete | Download everything; delete everything | ✅ |
+| S17 | Privacy map | `/privacy-map.html`: all privacy layers side by side, animated for presentations | ✅ |
 
 ### 🧭 Usability and accessibility
 | # | Feature | What it does | Status |
@@ -52,6 +123,8 @@ Riaya works in any browser and installs on **iPhone, Android and Mac**: as a web
 | I6 | Lab dashboard and forecast | Results in range, what is moving, next test due, a projected value with a likely range, and an alert before a limit is crossed | ✅ |
 | I7 | Riaya-Net | Our own small model, fine-tuned on real data, runs on the phone; a clinician second opinion only | ✅ |
 | I8 | Dropout early warning | Coordinators see who may fall off the pathway, with reasons | ✅ |
+| I9 | Gym product checker | Photo (read on the phone) or typed label → STOP / CAUTION / OK for testosterone, steroids, SARMs, prohormones, banned stimulants and self-run "PCT", each with why and the evidence; Arabic too; nothing stored | ✅ |
+| I10 | Impact simulator | `/impact.html`: what a rollout changes (men assessed, waiting removed, repeat tests avoided, clinician hours), every assumption sourced and adjustable | ✅ |
 
 ### 📱 Devices and tests
 | # | Feature | What it does | Status |
@@ -63,6 +136,7 @@ Riaya works in any browser and installs on **iPhone, Android and Mac**: as a web
 | D5 | Lab report reading | Keeps each lab's printed range, reads his age, scores reading confidence; he corrects before saving; a doctor checks each value | ✅ |
 | D6 | Semen analysis, hormones, metabolic | WHO 2021 limits; testosterone, LH, FSH, HbA1c, vitamin D; genomic flag | ✅ |
 | D7 | Clothing check | Reads a care label and gives a groin-heat index | ✅ |
+| D8 | UAE heat guard | Today's heat in his emirate (picked, never GPS) turned into one practical tip | ✅ |
 
 ### 🔁 12-week companion (behaviour change)
 | # | Feature | What it does | Status |

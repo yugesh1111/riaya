@@ -1,6 +1,6 @@
 # Validation report
 
-Generated 2026-11-19 00:16. Re-run with `python validation/run_validation.py`.
+Generated 2026-11-19 20:21. Re-run with `python validation/run_validation.py`.
 
 ## 1. Triage safety on clinical vignettes
 

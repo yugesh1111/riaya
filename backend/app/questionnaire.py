@@ -163,7 +163,7 @@ QUESTIONS = [
       PHQ, instrument="PHQ-2"),
     q("phq2", "mind", "choice", "Last 2 weeks: feeling down, depressed or hopeless", "خلال الأسبوعين الماضيين: الشعور بالإحباط أو الاكتئاب أو اليأس",
       PHQ, instrument="PHQ-2"),
-    q("adam1", "mind", "yesno", "Decrease in sex drive?", "هل انخفضت الرغبة الجنسية؟", YES_NO, sensitive=True, instrument="ADAM"),
+    q("adam1", "mind", "yesno", "Lower drive or desire than before?", "هل قلّت الرغبة لديك عن المعتاد؟", YES_NO, sensitive=True, instrument="ADAM"),
     q("adam2", "mind", "yesno", "Lack of energy?", "هل تشعر بنقص في الطاقة؟", YES_NO, instrument="ADAM"),
     q("adam3", "mind", "yesno", "Decrease in strength or endurance?", "هل انخفضت القوة أو القدرة على التحمل؟", YES_NO, instrument="ADAM"),
     q("adam4", "mind", "yesno", "Lost height?", "هل نقص طولك؟", YES_NO, instrument="ADAM"),
