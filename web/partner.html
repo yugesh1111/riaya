@@ -17,7 +17,7 @@
 <a class="skip-link" href="#view">Skip to content</a>
 <header class="top"><div class="brand"><i></i><span id="brand"></span></div><div class="spacer"></div><button class="chip" id="langBtn"></button></header>
 <main class="wrap" id="view"></main>
-<script src="js/common.js?v=2"></script>
+<script src="js/common.js?v=3"></script>
 <script src="js/i18n.js"></script>
 <script>
 const P = {
@@ -32,6 +32,7 @@ let data = null;
 // token travels in the URL fragment, which browsers never send to the server or in Referer headers
 const token = location.hash.slice(1);
 async function load() {
+  if (!token) { data = null; return render(); }  // no link: show the friendly "link not valid" message without asking the server
   try { data = await API.get(`/api/partner/${encodeURIComponent(token)}`); } catch { data = null; }
   render();
 }

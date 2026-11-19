@@ -151,3 +151,39 @@ const Notes = {
   };
   document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", start) : start();
 })();
+
+/* Language toggle: every page's #langBtn becomes a two-part switch, ع | EN, with the current language lit.
+   Pages keep their own click handlers; this only draws the switch and keeps it in step with LANG. */
+(function langToggle() {
+  const css = document.createElement("style");
+  css.textContent = `
+    #langBtn.lt { display: inline-flex; align-items: center; padding: 3px; gap: 0; border-radius: 999px; border: 1px solid var(--line, #d9dbd5);
+      background: var(--surface, transparent); cursor: pointer; direction: ltr; min-height: 36px; }
+    #langBtn.lt span { padding: 5px 11px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--muted, #6b7a80); transition: background .2s, color .2s; line-height: 1.2; }
+    #langBtn.lt span.on { background: var(--ink, #0f2a3a); color: var(--bg, #fff); }
+    #langBtn.lt span[lang=ar] { font-size: 15px; }
+    @media (prefers-reduced-motion: reduce) { #langBtn.lt span { transition: none; } }`;
+  document.head.appendChild(css);
+  const cur = () => (typeof LANG !== "undefined" ? LANG : (localStorage.getItem("lang") || "ar"));
+  function draw(b) {
+    const ar = cur() === "ar";
+    const html = `<span lang="ar" class="${ar ? "on" : ""}">ع</span><span lang="en" class="${ar ? "" : "on"}">EN</span>`;
+    if (b.innerHTML === html) return;
+    b.classList.add("lt");
+    b.setAttribute("role", "switch");
+    b.setAttribute("aria-checked", String(!ar));
+    b.setAttribute("aria-label", ar ? "اللغة: العربية. التبديل إلى الإنجليزية" : "Language: English. Switch to Arabic");
+    b.innerHTML = html;
+  }
+  const watch = () => {
+    const b = document.getElementById("langBtn");
+    if (!b || b.dataset.lt) return;
+    b.dataset.lt = "1";
+    draw(b);
+    new MutationObserver(() => draw(b)).observe(b, { childList: true, characterData: true, subtree: true });
+    b.addEventListener("click", () => setTimeout(() => draw(b), 0));
+  };
+  const scan = () => { watch(); };
+  document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", scan) : scan();
+  new MutationObserver(scan).observe(document.documentElement, { childList: true, subtree: true });
+})();

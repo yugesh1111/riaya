@@ -128,6 +128,9 @@
     .lk .pad button:active { background: rgba(238,240,236,.18); } .lk .pad button:focus-visible, .lk .lnk:focus-visible { outline: 3px solid #c9a86a; outline-offset: 2px; }
     .lk .pad .ghost { border: 0; background: transparent; font-size: 15px; }
     .lk .lnk { background: none; border: 0; color: #c9a86a; font: inherit; font-size: 14px; cursor: pointer; padding: 8px; }
+    .lk .lk-lang { position: absolute; top: max(16px, env(safe-area-inset-top)); inset-inline-end: 16px; display: inline-flex; padding: 3px; border-radius: 999px;
+      border: 1px solid rgba(238,240,236,.2); background: transparent; cursor: pointer; direction: ltr; }
+    .lk .lk-lang span { padding: 5px 11px; border-radius: 999px; font: 600 13px/1.2 inherit; color: #9fb0ba; } .lk .lk-lang span.on { background: #eef0ec; color: #0f2a3a; }
     .lk .msg { min-height: 20px; color: #f0b3a8; font-size: 14px; }
     .lk .bioic { width: 96px; height: 96px; color: #c9a86a; margin: 6px 0 4px; } .lk .bioic.ok { color: #9be15d; }
     .lk .bioic svg path { stroke-dasharray: 220; stroke-dashoffset: 220; animation: lkdraw 1.1s cubic-bezier(.2,.8,.2,1) forwards; }
@@ -148,14 +151,23 @@
     sheet.className = "lk"; sheet.setAttribute("role", "dialog"); sheet.setAttribute("aria-modal", "true");
     const s = read();
     const mode = setup ? "set" : "unlock";
-    sheet.innerHTML = `<img src="icons/icon-192.png" alt="">
+    sheet.innerHTML = `<button type="button" class="lk-lang" id="lkLang" aria-label="${L() === "ar" ? "English" : "العربية"}"><span class="${L() === "ar" ? "on" : ""}">ع</span><span class="${L() === "ar" ? "" : "on"}">EN</span></button>
+      <img src="icons/icon-192.png" alt="">
       <h2 id="lkT">${esc(mode === "set" ? x("setT") : x("title"))}</h2><p id="lkS">${esc(mode === "set" ? x("setSub") : x("sub"))}</p>
-      <div class="dots" id="lkD" aria-hidden="true">${"<i></i>".repeat(6)}</div><div class="msg" id="lkM" role="status" aria-live="assertive"></div>
+      <div class="dots" id="lkD" aria-hidden="true">${"<i></i>".repeat(mode === "unlock" && s && s.len ? s.len : 6)}</div><div class="msg" id="lkM" role="status" aria-live="assertive"></div>
       <div class="pad" role="group" aria-label="PIN">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<button type="button" data-k="${n}">${n}</button>`).join("")}
         <button type="button" class="ghost bio" data-k="bio" aria-label="${esc(x("bio"))}" ${mode === "unlock" && s && s.bio ? "" : "style='visibility:hidden'"}>${BIO_ICON}</button>
         <button type="button" data-k="0">0</button><button type="button" class="ghost" data-k="back" aria-label="${esc(x("del"))}">⌫</button></div>
       ${mode === "set" ? `<button type="button" class="lnk" id="lkOk" hidden>OK</button>` : `<button type="button" class="lnk" id="lkForgot">${esc(x("forgot"))}</button>`}`;
     document.body.appendChild(sheet);
+    sheet.querySelector("#lkLang").onclick = () => {
+      const next = L() === "ar" ? "en" : "ar";
+      try { localStorage.setItem("lang", next); } catch {}
+      if (typeof LANG !== "undefined") { try { LANG = next; } catch {} }
+      document.documentElement.lang = next; document.documentElement.dir = next === "ar" ? "rtl" : "ltr";
+      if (mode === "set" && first) { location.reload(); return; }
+      show(setup);
+    };
     const dots = sheet.querySelector("#lkD"), msg = sheet.querySelector("#lkM");
     const paint = () => [...dots.children].forEach((d, i) => d.classList.toggle("on", i < entry.length));
     const shake = t => { msg.textContent = t; dots.classList.remove("shake"); void dots.offsetWidth; dots.classList.add("shake"); entry = ""; paint(); };
