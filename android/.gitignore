@@ -3,3 +3,4 @@ build/
 signing/
 *.apk
 *.aab
+*.idsig
