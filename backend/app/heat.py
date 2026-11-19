@@ -58,8 +58,8 @@ def today(emirate, lang="en", fetch=_fetch):
         try:
             hit = (now, fetch(lat, lon))
             _cache[emirate] = hit
-        except Exception:
-            return {"emirate": emirate, "name": name_ar if L == "ar" else name_en, "available": False,
+        except Exception as e:
+            return {"emirate": emirate, "name": name_ar if L == "ar" else name_en, "available": False, "reason": type(e).__name__ + ": " + str(e)[:120],
                     "emirates": [{"key": k, "name": v[1] if L == "ar" else v[0]} for k, v in EMIRATES.items()]}
     w = hit[1]
     b = band(w["feels_c"])
