@@ -1,10 +1,10 @@
 # Riaya demo video: narration to read
 
-**Length:** the submission form says **keep it under 3 minutes**. Submit the 2:51 cut below. The full read (4:21) covers every feature and can go in the README as the long version.
+**Length:** the submission form says **keep it under 3 minutes**. Submit the 2:54 cut below. The full read (4:23) covers every feature and can go in the README as the long version.
 
-## The 2:51 cut (for the submission)
+## The 2:54 cut (for the submission)
 
-The voice track is `voice/riaya-narration-en-short.m4a` (2:43, your own recording, retakes removed). It isn't committed, because it is your voice. Put an 8-second silent title card in front of it, which makes 2:51 in total.
+The voice track is `voice/riaya-narration-en-short.m4a` (2:46, your own recording, retakes removed, re-recorded words spliced in). It isn't committed, because it is your voice. Put an 8-second silent title card in front of it, which makes 2:54 in total.
 
 | Video time | Voice says | On screen |
 |---|---|---|
