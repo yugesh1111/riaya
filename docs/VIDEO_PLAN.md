@@ -98,7 +98,7 @@ Say what is true: **"We tested Riaya end to end ourselves, in Arabic and English
 | | 5.7 Closed loop | Coordinator board: early warning, escalations, FHIR Task status | "Time limits by urgency. FHIR R4 Task. Nobody gets lost." |
 | | 5.8 Privacy | One switch pauses all sharing; "see exactly what they'll see" letter updating live; access log | "He decides who sees what. One switch stops it all." |
 | | 5.8a Locked by default | Set a PIN after the summary → switch apps → come back: the lock screen, nothing readable; a wrong PIN shakes; Face ID opens it | "Picked up his phone by mistake? They see nothing." |
-| | 5.8b The calculator | Home screen shows "Calculator" → do 12 + 30 = 42 → type the PIN, = → Riaya opens | "Hidden in plain sight" |
+| | 5.8b The calculator cover | First setup: choose "A calculator (cover)" → set PIN → reopen Riaya: a calculator → 12 + 30 = 42 → type the PIN, = → Riaya opens | "Hidden in plain sight" |
 | | 5.8c Encrypted reports | Scanned report in "Reports saved on this phone": encrypted, opens only while unlocked | "Reports never leave his phone. AES-256." |
 | | 5.8d Doctors too | "I'm a doctor" on the start screen → console with its own PIN | "One app. Patients and doctors." |
 | | 5.9 For the health authority | Programme dashboard: funnel, fairness, **30+ day outcomes** | "k-anonymised. Groups under 5 hidden." |

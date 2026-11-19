@@ -1,6 +1,5 @@
-// Builds two signed Android apps from the live site with Google's Bubblewrap:
-//   Riaya.apk      (ae.riaya.app)   opens the Riaya app
-//   Calculator.apk (ae.riaya.calc)  a working calculator; the Riaya PIN then "=" opens Riaya
+// Builds the signed Android app from the live site with Google's Bubblewrap: Riaya.apk (ae.riaya.app).
+// The calculator cover is inside the app (chosen at first setup), so there is one app, not two.
 // Usage: node build.js   (needs JDK 17 and the Android SDK; see README in this folder)
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
 const { TwaManifest, TwaGenerator, ConsoleLog, Config, JdkHelper, AndroidSdkTools, GradleWrapper, KeyTool } = require("@bubblewrap/core");
@@ -43,5 +42,4 @@ async function build(app, sdk, jdk, k) {
   const sdk = await AndroidSdkTools.create(process, config, jdk, log);
   const k = await key(jdk);
   await build({ id: "riaya", manifest: "manifest.webmanifest", packageId: "ae.riaya.app", name: "Riaya", start: "/index.html", color: "#0f2a3a", out: "Riaya.apk" }, sdk, jdk, k);
-  await build({ id: "calc", manifest: "manifest-calc.webmanifest", packageId: "ae.riaya.calc", name: "Calculator", start: "/calc.html", color: "#1c1c1e", out: "Calculator.apk" }, sdk, jdk, k);
 })().catch(e => { console.error(e); process.exit(1); });

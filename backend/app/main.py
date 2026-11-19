@@ -2753,7 +2753,7 @@ APK_SHA256 = os.environ.get("RIAYA_APK_SHA256", "20:68:DA:BE:5C:0A:81:F7:FA:AC:9
 def assetlinks():
     return [{"relation": ["delegate_permission/common.handle_all_urls"],
              "target": {"namespace": "android_app", "package_name": pkg, "sha256_cert_fingerprints": [APK_SHA256]}}
-            for pkg in ("ae.riaya.app", "ae.riaya.calc")]
+            for pkg in ("ae.riaya.app",)]
 
 
 # ------------------------------------------------------------------ static web app

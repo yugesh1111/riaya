@@ -35,7 +35,7 @@ Confirm with legal counsel before the pilot. This is the team's reading, not leg
 | Locked by default | After his first summary Riaya requires a 4–6 digit PIN. Every opening and every return after 15 seconds away shows the lock first. Face ID / Touch ID / fingerprint can unlock it (WebAuthn platform authenticator with user verification, checked on the phone). |
 | PIN storage | Never stored. Only PBKDF2-SHA-256 (210,000 iterations, random 16-byte salt). Five wrong tries pause input for 30 s, then longer. |
 | Documents on the phone | Scanned reports are kept only on the phone (IndexedDB), encrypted with AES-256-GCM. The key is generated on the phone as a non-extractable WebCrypto key and is used only while the app is unlocked. |
-| Disguise | `/calc.html` installs as "Calculator" with a calculator icon and works as a calculator. The PIN followed by "=" opens Riaya. Installed apps cannot change their icon later, so the disguise is chosen at install. |
+| Calculator cover | Chosen at first setup (or later in Privacy). The lock screen becomes a working calculator; the PIN followed by "=" opens Riaya. |
 | Forgotten PIN | He can erase Riaya from the phone; his record can be restored with his recovery code. Riaya cannot reset the PIN for him, by design. |
 | Clinicians | The console has its own PIN lock for shared computers; clinician sessions also end when the tab closes. |
 | What travels | WhatsApp and reminders carry only neutral text and one-time codes, never results. Reports he scans stay on the phone; only the values he confirms are sent, encrypted at rest on the server. |

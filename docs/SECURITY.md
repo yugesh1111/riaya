@@ -8,7 +8,7 @@ Riaya holds some of the most sensitive data a man has. This document lists the w
 |---|---|
 | Opens the app | **Locked by default.** A PIN is required once he has a summary. Every opening, and every return after 15 seconds away, shows the lock first. The page underneath is hidden, not just covered. |
 | Guesses the PIN | 4–6 digits. Only a PBKDF2-SHA-256 hash is kept (210,000 rounds, random salt), never the PIN. After 5 wrong tries, input pauses for 30 s, then longer each time. |
-| Sees the app icon | **Calculator disguise.** Installed as "Calculator", it works as a calculator. The PIN followed by "=" opens Riaya. |
+| Opens the app to see what it is | **Calculator cover** (his choice at setup): Riaya opens as a working calculator and the title says "Calculator". The PIN followed by "=" opens Riaya; wrong PINs look like ordinary numbers and are rate-limited silently. The home-screen icon stays Riaya's. |
 | Looks over his shoulder or at the app switcher | The screen blurs whenever the app loses focus. A one-tap "hide" covers it with a neutral tip, and the page title changes. |
 | Opens a document after he unlocked the app and left the phone | **Every vault document asks for Face ID / fingerprint / PIN again**, and closes itself when he leaves the app. |
 | Reads the phone's storage directly (a stolen, unlocked phone, or developer tools) | Documents are stored encrypted with AES-256-GCM. The key is a non-extractable WebCrypto key: page code can use it but not read it. |

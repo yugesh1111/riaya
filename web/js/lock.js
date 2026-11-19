@@ -5,7 +5,7 @@
    - Documents kept on the phone (scanned reports, files from the doctor) are encrypted with AES-GCM using a key that
      is generated on the phone and cannot be exported from the browser. They open only after unlocking.
    - Forgot the PIN: he can erase Riaya from this phone and restore his record later with his recovery code.
-   - Calculator disguise: calc.html unlocks with PIN then "=", and hands over here without showing the lock again.
+   - Calculator cover (his choice at setup): the lock screen is a working calculator; his PIN then "=" opens Riaya.
    Scope "user" protects the man's app; scope "doc" protects the clinician console on a shared computer. */
 (function (root) {
   const T = {
@@ -17,7 +17,13 @@
           card: "App lock", cardSub: "Riaya locks every time you open it or come back from another app. Documents on this phone are encrypted.",
           bioT: "Unlock with Face ID or fingerprint?", bioSub: "Faster than your PIN, and your face or fingerprint never leaves this phone. Your PIN still works.",
           bioYes: "Use Face ID / fingerprint", notNow: "Not now", bioDone: "All set", bioFail: "That didn't work. You can turn it on later in Privacy.",
-          verT: "Confirm it's you", verSub: "To open this document" },
+          verT: "Confirm it's you", verSub: "To open this document",
+          coverQ: "How should Riaya look when you open it?", coverSub: "You can change this later in Privacy.",
+          plainT: "Riaya, with a PIN lock", plainS: "Opens to a lock screen. Face ID or fingerprint can open it.",
+          calcT: "A calculator (cover)", calcS: "Anyone who opens it sees a working calculator. Type your PIN and press = to open Riaya.",
+          setCalcT: "Choose your secret PIN", setCalcSub: "You'll type it into the calculator, then press =. 4 to 6 digits.",
+          coverDone: "Done. From now on Riaya opens as a calculator.", coverHow: "To open Riaya: type your PIN, then press =.", gotIt: "Got it",
+          coverOn: "Calculator cover is on", coverOff: "Use the calculator cover", coverTurnOff: "Turn the cover off" },
     ar: { title: "رعاية مقفلة", sub: "أدخل رمزك", setT: "احمِ رعاية برمز سري", setSub: "يبقى ملخصك وتقاريرك ورسائلك مقفلة حتى تدخله. من ٤ إلى ٦ أرقام.",
           again: "أدخله مرة أخرى", wrong: "الرمز غير صحيح", mismatch: "الرمزان غير متطابقين. حاول مرة أخرى.", bio: "استخدم بصمة الوجه / الإصبع",
           bioSet: "افتح أيضاً ببصمة الوجه / الإصبع", forgot: "نسيت الرمز؟", forgotQ: "هل تريد مسح رعاية من هذا الهاتف؟ يمكنك استعادة سجلك لاحقاً برمز الاسترداد.",
@@ -26,7 +32,13 @@
           card: "قفل التطبيق", cardSub: "تُقفل رعاية في كل مرة تفتحها أو تعود إليها من تطبيق آخر. المستندات على هذا الهاتف مشفّرة.",
           bioT: "هل تفتح ببصمة الوجه أو الإصبع؟", bioSub: "أسرع من الرمز، وبصمتك لا تغادر هذا الهاتف أبداً. يبقى رمزك صالحاً.",
           bioYes: "استخدم بصمة الوجه / الإصبع", notNow: "ليس الآن", bioDone: "تم", bioFail: "لم ينجح ذلك. يمكنك تفعيله لاحقاً من الخصوصية.",
-          verT: "تأكيد هويتك", verSub: "لفتح هذا المستند" },
+          verT: "تأكيد هويتك", verSub: "لفتح هذا المستند",
+          coverQ: "كيف تريد أن تبدو رعاية عند فتحها؟", coverSub: "يمكنك تغيير ذلك لاحقاً من الخصوصية.",
+          plainT: "رعاية مع قفل برمز", plainS: "تُفتح على شاشة قفل. يمكن فتحها ببصمة الوجه أو الإصبع.",
+          calcT: "آلة حاسبة (غطاء)", calcS: "من يفتحها يرى آلة حاسبة تعمل. اكتب رمزك واضغط = لتفتح رعاية.",
+          setCalcT: "اختر رمزك السري", setCalcSub: "ستكتبه في الآلة الحاسبة ثم تضغط =. من ٤ إلى ٦ أرقام.",
+          coverDone: "تم. من الآن تُفتح رعاية على شكل آلة حاسبة.", coverHow: "لفتح رعاية: اكتب رمزك ثم اضغط =.", gotIt: "فهمت",
+          coverOn: "غطاء الآلة الحاسبة مفعّل", coverOff: "استخدم غطاء الآلة الحاسبة", coverTurnOff: "أوقف الغطاء" },
   };
   const L = () => ((typeof LANG !== "undefined" ? LANG : document.documentElement.lang) === "ar" ? "ar" : "en");
 
@@ -127,6 +139,7 @@
   let verifying = null;
   function open() {
     if (verifying) { const r = verifying; verifying = null; sheet && sheet.remove(); sheet = null; document.documentElement.classList.remove("locked"); return r(true); }
+    if (savedTitle !== null) { document.title = savedTitle; savedTitle = null; }
     ss.set(UNLOCK_FLAG, "1"); document.documentElement.classList.remove("locked"); sheet && sheet.remove(); sheet = null; root.dispatchEvent(new Event("riaya:unlocked")); }
   function lock() { if (!hasPin()) return; ss.del(UNLOCK_FLAG); show(); }
 
@@ -190,8 +203,85 @@
     .lk-android .primary { background: #8ab4f8; color: #0b0f14; border-radius: 24px; }
     .lk-android .bioic { color: #8ab4f8; } .lk-android .bioic.ok { color: #81c995; }
     .lk-android .lk-lang span.on, .lk-apple .lk-lang span.on { background: #fff; color: #000; }
+    .lk-choices { display: grid; gap: 12px; width: min(380px, 100%); margin-top: 8px; }
+    .lk-choice { display: flex; gap: 14px; align-items: center; text-align: start; padding: 14px; border-radius: 18px; border: 1px solid rgba(255,255,255,.16);
+      background: rgba(255,255,255,.06); color: #fff; font: inherit; cursor: pointer; }
+    .lk-choice img { width: 52px; height: 52px; border-radius: 13px; flex: none; } .lk-choice b { display: block; font-size: 16px; } .lk-choice small { display: block; color: rgba(255,255,255,.7); font-size: 13px; margin-top: 3px; }
+    .lk-choice:hover, .lk-choice:focus-visible { border-color: #c9a86a; outline: none; }
+    /* calculator cover */
+    .lk-calc { background: #000; justify-content: flex-end; padding: 16px 16px max(24px, env(safe-area-inset-bottom)); font-family: -apple-system, "Segoe UI", Roboto, system-ui, sans-serif; }
+    .lk-calc .cx { width: min(400px, 100%); direction: ltr; }
+    .lk-calc .cx-expr { text-align: right; color: #8e8e93; font-size: 20px; min-height: 26px; padding: 0 12px; }
+    .lk-calc .cx-out { text-align: right; color: #fff; font-size: clamp(48px, 18vw, 76px); font-weight: 300; padding: 0 10px 14px; white-space: nowrap; overflow: hidden; }
+    .lk-calc .cx-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .lk-calc .cx-keys button { aspect-ratio: 1; border: 0; border-radius: 50%; font-size: 28px; color: #fff; background: #333336; cursor: pointer; font-family: inherit; }
+    .lk-calc .cx-keys button:active { filter: brightness(1.35); } .lk-calc .cx-keys button:focus-visible { outline: 3px solid #ff9f0a; outline-offset: 2px; }
+    .lk-calc .cx-keys .fn { background: #a5a5aa; color: #000; } .lk-calc .cx-keys .op { background: #ff9f0a; } .lk-calc .cx-keys .op.on { background: #fff; color: #ff9f0a; }
+    .lk-calc .cx-keys .zero { grid-column: span 2; aspect-ratio: auto; border-radius: 999px; text-align: left; padding-left: 30px; }
     @media (prefers-reduced-motion: reduce) { .lk .dots.shake, .lk .step, .lk .bioic svg path { animation: none; stroke-dashoffset: 0; } }`;
   document.head.appendChild(css);
+
+  /* Calculator cover: when he chose it, the lock screen IS a working calculator. Typing his PIN (4-6 digits, no other
+     keys in between) and then "=" opens Riaya; anything else simply calculates. Wrong PINs look like ordinary numbers,
+     and after 5 of them the calculator stops accepting PINs for a while, silently. */
+  const isCover = () => !!(read() && read().cover);
+  let savedTitle = null;
+  function calcSheet() {
+    document.documentElement.classList.add("locked");
+    sheet && sheet.remove();
+    sheet = document.createElement("div");
+    sheet.className = "lk lk-calc"; sheet.setAttribute("role", "application"); sheet.setAttribute("aria-label", "Calculator");
+    if (savedTitle === null) { savedTitle = document.title; document.title = "Calculator"; }
+    sheet.innerHTML = `<div class="cx"><div class="cx-expr" aria-live="polite"></div><div class="cx-out" role="status">0</div>
+      <div class="cx-keys">${[["C", "AC", "fn"], ["±", "±", "fn"], ["%", "%", "fn"], ["/", "÷", "op"], ["7"], ["8"], ["9"], ["*", "×", "op"], ["4"], ["5"], ["6"], ["-", "−", "op"],
+        ["1"], ["2"], ["3"], ["+", "+", "op"], ["0", "0", "zero"], [".", "."], ["=", "=", "op"]].map(([k, l, c]) => `<button type="button" class="${c || ""}" data-c="${k}">${l || k}</button>`).join("")}</div></div>`;
+    document.body.appendChild(sheet);
+    const out = sheet.querySelector(".cx-out"), ex = sheet.querySelector(".cx-expr");
+    let cur = "0", acc = null, op = null, fresh = true, typed = "";
+    const fmt = v => { if (!isFinite(v)) return "Error"; const t = String(+v.toPrecision(12)); return t.length > 12 ? (+v).toExponential(6) : t; };
+    const calc = (a, b, o) => o === "+" ? a + b : o === "-" ? a - b : o === "*" ? a * b : o === "/" ? a / b : b;
+    const sym = { "+": "+", "-": "−", "*": "×", "/": "÷" };
+    const showv = () => { out.textContent = cur; sheet.querySelectorAll(".op").forEach(b => b.classList.toggle("on", b.dataset.c === op && fresh)); };
+    const press = async k => {
+      if (/^\d$/.test(k)) { typed = (typed + k).slice(-6); cur = fresh || cur === "0" ? k : (cur + k).slice(0, 12); fresh = false; }
+      else if (k === ".") { typed = ""; if (fresh) { cur = "0."; fresh = false; } else if (!cur.includes(".")) cur += "."; }
+      else if (k === "C") { cur = "0"; acc = null; op = null; fresh = true; typed = ""; ex.textContent = ""; }
+      else if (k === "±") { typed = ""; cur = fmt(-parseFloat(cur)); }
+      else if (k === "%") { typed = ""; cur = fmt(parseFloat(cur) / 100); }
+      else if ("+-*/".includes(k)) {
+        typed = "";
+        if (op && !fresh) { acc = calc(acc, parseFloat(cur), op); cur = fmt(acc); } else acc = parseFloat(cur);
+        op = k; fresh = true; ex.textContent = `${fmt(acc)} ${sym[k]}`;
+      } else if (k === "=") {
+        if (!op && typed.length >= 4 && Date.now() >= until) {
+          if (await checkPin(typed)) { fails = 0; typed = ""; return open(); }
+          if (++fails >= 5) until = Date.now() + 30000 * (fails - 4);
+        }
+        typed = "";
+        if (op) { const b = parseFloat(cur); ex.textContent = `${fmt(acc)} ${sym[op]} ${fmt(b)} =`; cur = fmt(calc(acc, b, op)); acc = null; op = null; fresh = true; }
+      }
+      showv();
+    };
+    sheet.querySelectorAll("[data-c]").forEach(b => b.onclick = () => press(b.dataset.c));
+    sheet.addEventListener("keydown", e => { const m = { Enter: "=", Escape: "C" }[e.key] || e.key; if (/^[\d.+\-*/=%]$/.test(m) || m === "C") { e.preventDefault(); press(m); } });
+    setTimeout(() => sheet && sheet.querySelector("[data-c='7']").focus(), 30);
+  }
+
+  /* First-time choice: a normal lock, or the calculator cover. */
+  function chooseCover(then) {
+    document.documentElement.classList.add("locked");
+    sheet && sheet.remove();
+    sheet = document.createElement("div");
+    sheet.className = "lk lk-" + SKIN; sheet.setAttribute("role", "dialog"); sheet.setAttribute("aria-modal", "true");
+    sheet.innerHTML = `<div class="step"><img src="icons/icon-192.png" alt=""><h2>${esc(x("coverQ"))}</h2><p>${esc(x("coverSub"))}</p>
+      <div class="lk-choices">
+        <button type="button" class="lk-choice" data-cv="0"><img src="icons/icon-192.png" alt=""><span><b>${esc(x("plainT"))}</b><small>${esc(x("plainS"))}</small></span></button>
+        <button type="button" class="lk-choice" data-cv="1"><img src="icons/calc-192.png" alt=""><span><b>${esc(x("calcT"))}</b><small>${esc(x("calcS"))}</small></span></button>
+      </div></div>`;
+    document.body.appendChild(sheet);
+    sheet.querySelectorAll("[data-cv]").forEach(b => b.onclick = () => then(b.dataset.cv === "1"));
+    setTimeout(() => sheet && sheet.querySelector("[data-cv='0']").focus(), 30);
+  }
 
   /* Asks for the PIN or Face ID again before something sensitive opens (a vault document). Resolves true or false. */
   function verify() {
@@ -199,7 +289,13 @@
     return new Promise(res => { verifying = res; show(false, true); });
   }
 
+  let wantCover = null;
   function show(setup, isVerify) {
+    if (setup && wantCover === null) {
+      if (scope !== "user") wantCover = false;   // the doctor console never wears a disguise
+      else return chooseCover(c => { wantCover = c; show(true); });
+    }
+    if (!setup && !isVerify && isCover()) return calcSheet();
     document.documentElement.classList.add("locked");
     sheet && sheet.remove();
     entry = ""; first = null;
@@ -209,7 +305,7 @@
     const mode = setup ? "set" : "unlock";
     sheet.innerHTML = `<button type="button" class="lk-lang" id="lkLang" aria-label="${L() === "ar" ? "English" : "العربية"}"><span class="${L() === "ar" ? "on" : ""}">ع</span><span class="${L() === "ar" ? "" : "on"}">EN</span></button>
       <img src="icons/icon-192.png" alt="">
-      <h2 id="lkT">${esc(mode === "set" ? x("setT") : isVerify ? x("verT") : x("title"))}</h2><p id="lkS">${esc(mode === "set" ? x("setSub") : isVerify ? x("verSub") : x("sub"))}</p>
+      <h2 id="lkT">${esc(mode === "set" ? (wantCover ? x("setCalcT") : x("setT")) : isVerify ? x("verT") : x("title"))}</h2><p id="lkS">${esc(mode === "set" ? (wantCover ? x("setCalcSub") : x("setSub")) : isVerify ? x("verSub") : x("sub"))}</p>
       <div class="dots" id="lkD" aria-hidden="true">${"<i></i>".repeat(mode === "unlock" && s && s.len ? s.len : 6)}</div><div class="msg" id="lkM" role="status" aria-live="assertive"></div>
       <div class="pad" role="group" aria-label="PIN">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<button type="button" data-k="${n}" aria-label="${n}"><b>${n}</b>${SKIN === "apple" ? `<small>${["", "ABC", "DEF", "GHI", "JKL", "MNO", "PQRS", "TUV", "WXYZ"][n - 1]}</small>` : ""}</button>`).join("")}
         <button type="button" class="ghost bio" data-k="bio" aria-label="${esc(x("bio"))}" ${mode === "unlock" && s && s.bio ? "" : "style='visibility:hidden'"}>${BIO_GLYPH}</button>
@@ -237,10 +333,17 @@
       if (!first) { first = entry; entry = ""; paint(); sheet.querySelector("#lkS").textContent = x("again"); sheet.querySelector("#lkOk").hidden = true; return; }
       if (entry !== first) { first = null; sheet.querySelector("#lkS").textContent = x("setSub"); return shake(x("mismatch")); }
       const salt = crypto.getRandomValues(new Uint8Array(16));
-      write({ salt: b64(salt), hash: await hash(entry, salt), len: entry.length, at: Date.now() });
+      write({ salt: b64(salt), hash: await hash(entry, salt), len: entry.length, at: Date.now(), cover: !!wantCover });
       await getKey().catch(() => {});
+      if (wantCover) return coverDone();
       if (await bioAvailable()) return bioStep();
       open();
+    };
+    const coverDone = () => {
+      sheet.innerHTML = `<div class="step"><img src="icons/calc-192.png" alt="" style="width:72px;height:72px;border-radius:18px"><h2>${esc(x("coverDone"))}</h2>
+        <p>${esc(x("coverHow"))}</p><button type="button" class="primary" id="lkGot">${esc(x("gotIt"))}</button></div>`;
+      sheet.querySelector("#lkGot").onclick = () => open();
+      setTimeout(() => sheet.querySelector("#lkGot").focus(), 30);
     };
     // second step after the PIN: offer Face ID / fingerprint as its own clear choice
     const bioStep = () => {
@@ -307,13 +410,17 @@
     const s = read(), bio = await bioAvailable();
     return `<div class="card" id="lkCard"><h3>🔒 ${esc(x("card"))}</h3><p class="small muted">${esc(x("cardSub"))}</p>
       <p class="row"><button class="btn ghost" type="button" data-lk="lock">${esc(x("lockNow"))}</button><button class="chip" type="button" data-lk="change">${esc(x("change"))}</button>
-      ${bio ? (s && s.bio ? `<span class="tag">✓ ${esc(x("bioOn"))}</span>` : `<button class="chip" type="button" data-lk="bio">${esc(x("bioOff"))}</button>`) : ""}</p></div>`;
+      ${bio && !(s && s.cover) ? (s && s.bio ? `<span class="tag">✓ ${esc(x("bioOn"))}</span>` : `<button class="chip" type="button" data-lk="bio">${esc(x("bioOff"))}</button>`) : ""}</p>
+      <div class="row" style="align-items:center;gap:12px;margin-top:8px"><img src="icons/calc-192.png" alt="" width="40" height="40" style="border-radius:10px">
+        <div style="flex:1"><b>${esc(s && s.cover ? x("coverOn") : x("calcT"))}</b><div class="small muted">${esc(x("calcS"))}</div></div>
+        <button class="chip" type="button" data-lk="cover">${esc(s && s.cover ? x("coverTurnOff") : x("coverOff"))}</button></div></div>`;
   }
   function wireCard(host, rerender) {
     host.querySelectorAll("[data-lk]").forEach(b => b.onclick = async () => {
       if (b.dataset.lk === "lock") lock();
       else if (b.dataset.lk === "change") { const old = read(); write(null); show(true); root.addEventListener("riaya:unlocked", () => { if (!read()) write(old); }, { once: true }); }
       else if (b.dataset.lk === "bio") { await enrolBio().catch(() => {}); rerender && rerender(); }
+      else if (b.dataset.lk === "cover") { const cur = read(); if (cur) { write({ ...cur, cover: !cur.cover }); rerender && rerender(); } }
     });
   }
 

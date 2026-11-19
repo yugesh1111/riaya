@@ -14,7 +14,7 @@ Riaya works in any browser and installs on **iPhone, Android and Mac**: as a web
 | S3 | Face ID / Touch ID / fingerprint | Offered as its own step after the PIN, named for the device (Face ID on iPhone, Touch ID on Mac, fingerprint on Android), checked on the phone | ✅ |
 | S4 | Native-looking lock | iPhone/Mac: an iOS-style passcode pad with letters. Samsung/Android: a flat One UI keypad. Both with an ع \| EN switch | ✅ |
 | S5 | Document vault | His reports and doctor documents live only on his device, encrypted (AES-256-GCM, non-exportable key). Each one asks for Face ID or the PIN again to open, and closes when he leaves the app. Doctors have their own vault | ✅ |
-| S6 | Calculator disguise | Installs as "Calculator" with a calculator icon and works as one. His PIN followed by "=" opens Riaya | ✅ |
+| S6 | Calculator cover | At first setup he chooses: a normal PIN lock, or a calculator cover. With the cover, Riaya opens as a working calculator (even the tab title says "Calculator"); his PIN then "=" opens Riaya. Wrong PINs look like ordinary numbers. Switch it on or off in Privacy | ✅ |
 | S7 | Told when someone opens his record | A private message every time a doctor or clinic opens his summary, labs or referral: who, what and when | ✅ |
 | S8 | One switch pauses all sharing | Doctor, coordinator and clinic lose access at once; appointments stay | ✅ |
 | S9 | Choose what each recipient sees | Answers, devices, labs and plan, per recipient. Applies at once, even to codes already given | ✅ |
@@ -100,8 +100,8 @@ Riaya works in any browser and installs on **iPhone, Android and Mac**: as a web
 ### 📦 Platforms
 | # | Platform | How | Status |
 |---|---|---|---|
-| P1 | iPhone / iPad | Safari → Add to Home Screen (normal Riaya, or the Calculator disguise) | ✅ |
-| P2 | Android | `android/Riaya.apk` and `android/Calculator.apk` (Trusted Web Activity, built with Bubblewrap); or Chrome → Install | ✅ |
+| P1 | iPhone / iPad | Safari → Add to Home Screen | ✅ |
+| P2 | Android | `android/Riaya.apk` (Trusted Web Activity, built with Bubblewrap; one app with the calculator cover inside); or Chrome → Install | ✅ |
 | P3 | Mac | `desktop/` builds `Riaya-1.0.0-arm64.dmg` (Electron) | ✅ |
 | P4 | Any browser | https://riaya-xhby.onrender.com | ✅ |
 
