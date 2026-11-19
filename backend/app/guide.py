@@ -32,6 +32,20 @@ def _has(text, words):
     return False
 
 
+PAIN_WORDS = ["pain", "painful", "hurts", "hurting", "ache", "aching", "ألم", "الم", "وجع", "يوجعني", "توجعني", "يألمني"]
+PAIN_CONTEXT = ["sudden", "suddenly", "severe", "terrible", "worst", "testicle", "testicles", "testis", "scrotum", "scrotal", "balls", "groin",
+                "مفاجئ", "فجأة", "شديد", "خصية", "خصيه", "الخصية", "الخصيتين", "كيس الصفن", "الصفن"]
+URGENT_EXTRA = ["torsion", "twisted testicle", "twisted", "blood in my semen", "bloody semen", "blood in semen", "التواء", "دم في السائل"]
+
+
+def _urgent(q):
+    """Urgent if a listed phrase appears, or if pain is mentioned together with sudden/severe or the testicles, in any order:
+    "I have sudden testicle pain", "my testicle suddenly hurts", "ألم شديد في الخصية"."""
+    if _has(q, URGENT_WORDS) or _has(q, URGENT_EXTRA):
+        return True
+    return _has(q, PAIN_WORDS) and _has(q, PAIN_CONTEXT)
+
+
 URGENT_WORDS = ["sudden pain", "severe pain", "swollen", "swelling", "lump", "blood in", "bleeding", "kill myself", "suicide",
                 "harm myself", "end my life", "hopeless", "can't go on", "ألم مفاجئ", "ألم شديد", "تورم", "ورم", "كتلة", "دم في",
                 "انتحار", "اؤذي نفسي", "أؤذي نفسي", "انهي حياتي", "يائس"]
@@ -187,7 +201,7 @@ def ask(question, answers, result, view, sharing_prefs, review_on, lang="en", co
     sugg = ([("What did the specialist find?" if L == "en" else "ماذا وجد المختص؟")] if consult else []) + t["suggest"]
     out = lambda kind, text, sources, safety="ok": {"intent": kind, "answer": text, "sources": sources, "safety": safety,
                                                     "suggestions": sugg[:4]}
-    if _has(q, URGENT_WORDS):
+    if _urgent(q):
         return out("urgent", t["urgent"], [{"label": t["src_safety"], "grade": None}], "urgent")
     if _has(q, MED_WORDS):
         return out("medicine", t["med"], [{"label": t["src_safety"], "grade": None}], "redirect")

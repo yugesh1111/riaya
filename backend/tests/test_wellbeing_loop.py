@@ -163,3 +163,12 @@ def test_tester_feedback_and_sus(client, doc):
     assert pub["n"] >= 1 and "comments" not in pub and pub["tried"].get("vault") and "nope" not in pub["tried"]
     team = client.get("/api/clinician/tester-feedback", headers=doc).json()
     assert team["comments"][0]["text"].startswith("Very private")
+
+
+def test_urgent_pain_is_caught_however_it_is_phrased():
+    from app import guide
+    for q in ["I have sudden testicle pain", "my testicle suddenly hurts", "severe pain in my balls", "twisted testicle",
+              "ألم شديد في الخصية", "عندي وجع في الخصية"]:
+        assert guide._urgent(guide._norm(q)), q
+    for q in ["I want to know which tests to do", "my back hurts a bit after gym", "what dose of clomid"]:
+        assert not guide._urgent(guide._norm(q)), q
