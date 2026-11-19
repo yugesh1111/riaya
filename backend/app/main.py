@@ -2648,6 +2648,18 @@ def get_visit_feedback(aid: str, user=Depends(current_user)):
     return {"given": dict(r) if r else None, "can_rate": can}
 
 
+# ------------------------------------------------------------------ Android apps: lets Riaya.apk and Calculator.apk open full screen
+# The fingerprint is the SHA-256 of the signing certificate in android/signing (override with RIAYA_APK_SHA256).
+APK_SHA256 = os.environ.get("RIAYA_APK_SHA256", "20:68:DA:BE:5C:0A:81:F7:FA:AC:9E:34:08:31:66:43:84:46:D4:09:28:CD:43:41:64:85:A2:85:2E:CA:20:4B")
+
+
+@app.get("/.well-known/assetlinks.json")
+def assetlinks():
+    return [{"relation": ["delegate_permission/common.handle_all_urls"],
+             "target": {"namespace": "android_app", "package_name": pkg, "sha256_cert_fingerprints": [APK_SHA256]}}
+            for pkg in ("ae.riaya.app", "ae.riaya.calc")]
+
+
 # ------------------------------------------------------------------ static web app
 app.mount("/knowledge", StaticFiles(directory=ROOT / "knowledge"), name="knowledge")
 app.mount("/", StaticFiles(directory=ROOT / "web", html=True), name="web")
