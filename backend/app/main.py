@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import pgstore
+from . import pgstore, supplements, heat
 from . import (prescribe, visit, assessment, care, companion, conversation, db, explain, fabric, guide, handover, ifhas, insights, labreport,
                labs, labtimeline, pathway, questionnaire, referral_loop, security, semen, sharing, wearables, wellbeing)
 from .knowledge import graph
@@ -2652,6 +2652,23 @@ def get_visit_feedback(aid: str, user=Depends(current_user)):
         r = c.execute("SELECT * FROM visit_feedback WHERE assessment_id=?", (aid,)).fetchone()
         can = bool(c.execute("SELECT 1 FROM appointments WHERE assessment_id=? AND status='attended'", (aid,)).fetchone())
     return {"given": dict(r) if r else None, "can_rate": can}
+
+
+# ------------------------------------------------------------------ gym product checker and UAE heat guard
+class LabelIn(BaseModel):
+    text: str = Field(min_length=1, max_length=8000)
+
+
+@app.post("/api/products/check")
+def product_check(body: LabelIn, lang: str = "en"):
+    """Reads the ingredient text (typed, or recognised on the phone from a photo). Nothing is stored."""
+    return supplements.check(body.text, lang_of(lang))
+
+
+@app.get("/api/heat")
+def heat_today(emirate: str = "abu_dhabi", lang: str = "en"):
+    """Today's heat for his emirate (not his location) and one practical tip."""
+    return heat.today(emirate, lang_of(lang))
 
 
 # ------------------------------------------------------------------ usability testing with real testers

@@ -172,3 +172,21 @@ def test_urgent_pain_is_caught_however_it_is_phrased():
         assert guide._urgent(guide._norm(q)), q
     for q in ["I want to know which tests to do", "my back hurts a bit after gym", "what dose of clomid"]:
         assert not guide._urgent(guide._norm(q)), q
+
+
+def test_gym_product_checker(client):
+    r = client.post("/api/products/check?lang=en", json={"text": "Ingredients: Ostarine (MK-2866) 10mg, Zinc 15mg"}).json()
+    assert r["verdict"] == "stop" and r["findings"][0]["match"] == "ostarine"
+    assert client.post("/api/products/check", json={"text": "Whey protein, creatine monohydrate"}).json()["verdict"] == "ok"
+    assert client.post("/api/products/check?lang=ar", json={"text": "حقن تستوستيرون"}).json()["verdict"] == "stop"
+    assert client.post("/api/products/check", json={"text": "specialist approved formula"}).json()["verdict"] is None  # no false hit inside words
+
+
+def test_heat_guard_uses_emirate_not_location():
+    from app import heat
+    r = heat.today("dubai", "en", fetch=lambda lat, lon: {"max_c": 44, "feels_c": 47, "uv": 11})
+    assert r["band"] == "extreme" and "midday" in r["tip"] and r["name"] == "Dubai"
+    heat._cache.clear()
+    def boom(lat, lon):
+        raise OSError("offline")
+    assert heat.today("sharjah", "ar", fetch=boom)["available"] is False

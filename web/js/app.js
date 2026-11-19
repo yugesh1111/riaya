@@ -131,7 +131,7 @@ function welcome() {
       ${[1, 2, 3].map(i => `<div><span class="n">${LANG === "ar" ? "٠" + "١٢٣"[i - 1] : "0" + i}</span><b>${t("how" + i + "t")}</b><p>${t("how" + i)}</p></div>`).join("")}
     </div>
     <footer class="foot"><span>© Riaya · ${LANG === "ar" ? "رعاية" : "رعاية"}</span>
-      <a href="tester.html">${LANG === "ar" ? "جرّبت رعاية؟ أخبرنا" : "Tried Riaya? Tell us"}</a>      <a href="whatsapp.html">${LANG === "ar" ? "رعاية على واتساب" : "Riaya on WhatsApp"}</a><a href="graph.html">${t("graphLink")}</a><a href="fabric.html">${t("fabricLink")}</a>
+      <a href="impact.html">${LANG === "ar" ? "محاكي الأثر" : "Impact simulator"}</a><a href="tester.html">${LANG === "ar" ? "جرّبت رعاية؟ أخبرنا" : "Tried Riaya? Tell us"}</a>      <a href="whatsapp.html">${LANG === "ar" ? "رعاية على واتساب" : "Riaya on WhatsApp"}</a><a href="graph.html">${t("graphLink")}</a><a href="fabric.html">${t("fabricLink")}</a>
       <span class="spacer"></span>${API.token ? "" : `<a href="#" id="restoreLink">${pv("restoreLink")}</a>`}<a href="clinic.html">${LANG === "ar" ? "للعيادات" : "For clinics"}</a>
       <a href="clinician.html">${LANG === "ar" ? "بوابة الأطباء" : "Clinician console"}</a></footer>`;
   $("#go").onclick = () => { document.body.classList.remove("landing"); resumable ? intake() : consent(); };
@@ -494,7 +494,7 @@ function renderResult() {
     <div id="companion"></div>
     ${r.strengths.length ? `<div class="card"><h3>${t("strengths")}</h3>${r.strengths.map(s => `<span class="tag">${esc(s.label)}</span>`).join("")}</div>` : ""}
     </section>
-    <section class="panel" data-panel="plan" hidden><div id="forecast"></div>
+    <section class="panel" data-panel="plan" hidden><div id="forecast"></div><div id="guardHost"></div>
     ${r.more.length ? `<details class="card"><summary><b>${t("moreTitle")}</b></summary><ul>${r.more.map(p => `<li>${esc(p.action)}</li>`).join("")}</ul></details>` : ""}
     ${r.tests.length ? `<div class="card"><h3>${t("testsTitle")}</h3><ul>${r.tests.map(x => `<li>${esc(x)}</li>`).join("")}</ul>
       ${r.semen_notes.map(n => `<p class="muted small">${esc(n)}</p>`).join("")}</div>` : ""}
@@ -578,6 +578,7 @@ function renderResult() {
     view().innerHTML = `<div class="card"><h2>${t("deleted")}</h2><button class="btn" onclick="welcome()">${t("start")}</button></div>`;
   };
   $("#again").onclick = () => { ["aid", "draft", "done"].forEach(store.del); S.answers = {}; S.aid = null; consent(); };
+  if (window.Guard) Guard.mount($("#guardHost"));
   setTimeout(() => { if (window.Lock) Lock.guard(); }, 1200);
 }
 
@@ -1027,6 +1028,7 @@ async function renderPlan() {
   view().innerHTML = `${head}<p class="lead">${done ? lx("done") : esc(lx("week")(plan.week, plan.weeks))}</p>
     ${done ? `<p><button class="btn" id="pnRecheck">${lx("recheck")}</button></p>` : ""}
     ${plan.doctor_note ? `<div class="card"><h3>${lx("doctorSays")}</h3><p>${esc(plan.doctor_note)}</p></div>` : ""}
+    <div id="planGuard"></div>
     ${WB.cards(plan)}
     ${form}
     <div class="card"><h2>${lx("trend")}</h2>${plan.items.map(i => `<h3>${esc(i.label)}</h3>${WB.tags(i)}
@@ -1036,6 +1038,7 @@ async function renderPlan() {
       <button class="chip" id="pnStop">${lx("stop")}</button></p></div>`}${done ? "" : WB.ramadanSetting(plan)}${back}`;
   $("#pnBack").onclick = () => renderJourney();
   WB.wire(plan, renderPlan);
+  if (window.Guard) Guard.mount($("#planGuard"));
   $$(".pn-item .opt").forEach(o => o.onclick = () => { o.parentElement.querySelectorAll(".opt").forEach(x => x.classList.toggle("on", x === o)); });
   $$("#pnEnergy .opt").forEach(o => o.onclick = () => $$("#pnEnergy .opt").forEach(x => x.classList.toggle("on", x === o)));
   if ($("#pnSave")) $("#pnSave").onclick = async () => {

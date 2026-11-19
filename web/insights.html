@@ -94,7 +94,7 @@ async function load() {
   const t = d.tiles;
   const faster = t.median_days_to_evaluation ? Math.round(t.usual_pathway_days / t.median_days_to_evaluation) : null;
   $("#view").innerHTML = `
-    <div class="head"><div><h1>Programme dashboard</h1>
+    <div class="head"><div><h1>Programme dashboard</h1><p><a href="impact.html">Open the impact simulator →</a></p>
       <p>Men's reproductive-health front door, Abu Dhabi. Aggregated and de-identified: groups smaller than ${d.k_anonymity} are hidden.</p></div>
       <div class="filters"><label><input type="checkbox" id="sim" ${d.includes_simulated ? "checked" : ""}> Include simulated pilot cases (${fmt(d.simulated)})</label></div></div>
     ${d.includes_simulated ? `<div class="banner alert" style="margin:0 0 16px"><b>Simulated pilot data is included.</b> ${fmt(d.simulated)} cases were generated from published effect sizes with assumed booking and attendance rates. These are not real Abu Dhabi results.</div>` : ""}

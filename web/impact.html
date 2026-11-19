@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Riaya · Impact simulator</title>
+<meta name="description" content="What Riaya could change for men's reproductive health in Abu Dhabi, with every assumption shown and adjustable.">
+<meta name="theme-color" content="#0f2a3a">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+  :root { --bg: #0b1a24; --card: rgba(238,240,236,.05); --line: rgba(238,240,236,.14); --ink: #eef0ec; --muted: #9fb0ba; --gold: #c9a86a; --good: #6fcf97; --bad: #e0675f; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: radial-gradient(120% 80% at 50% 0%, #143041, var(--bg) 60%); color: var(--ink); font-family: "IBM Plex Sans", system-ui, sans-serif; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 32px 16px 60px; }
+  .eyebrow { color: var(--gold); letter-spacing: .16em; text-transform: uppercase; font-size: 12px; }
+  h1 { font-weight: 500; font-size: clamp(26px, 4vw, 40px); margin: 8px 0 6px; } .lead { color: var(--muted); max-width: 760px; margin: 0 0 26px; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 18px; align-items: start; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 18px; }
+  .in { margin: 14px 0; } .in label { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; } .in label b { color: var(--gold); font-variant-numeric: tabular-nums; }
+  .in input[type=range] { width: 100%; accent-color: #c9a86a; } .src { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px; }
+  .tile .v { font-size: clamp(26px, 4vw, 36px); font-weight: 500; font-variant-numeric: tabular-nums; } .tile .k { color: var(--muted); font-size: 13px; }
+  .tile .d { font-size: 13px; margin-top: 4px; } .up { color: var(--good); }
+  .bars { margin-top: 16px; } .bar { display: grid; grid-template-columns: 150px 1fr 70px; gap: 10px; align-items: center; margin: 8px 0; font-size: 13px; }
+  .bar .t { height: 14px; background: rgba(238,240,236,.08); border-radius: 7px; overflow: hidden; } .bar .t i { display: block; height: 100%; border-radius: 7px; transition: width .4s; }
+  .bar .n { text-align: right; font-variant-numeric: tabular-nums; }
+  .note { color: var(--muted); font-size: 13px; line-height: 1.6; } a { color: var(--gold); }
+  h2 { font-weight: 500; font-size: 18px; margin: 0 0 6px; }
+  @media (prefers-reduced-motion: reduce) { .bar .t i { transition: none; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="eyebrow">Riaya · Impact simulator</div>
+  <h1>What changes if Abu Dhabi offers Riaya to men</h1>
+  <p class="lead">A transparent model, not a prediction. Every number on the right comes from the assumptions on the left, and every assumption says where it comes from. Move them to test your own scenario.</p>
+  <div class="grid">
+    <section class="card" aria-label="Assumptions">
+      <h2>Assumptions</h2>
+      <div id="inputs"></div>
+    </section>
+    <section aria-label="Results">
+      <div class="tiles" id="tiles"></div>
+      <div class="card bars"><h2>Men reaching a clinician, per year</h2><div id="bars"></div>
+        <p class="note">Usual pathway: men are usually assessed only after a couple has tried for 12 months or more, and many never are. With Riaya: a private check, a doctor's review and a booked clinic.</p></div>
+      <div class="card" style="margin-top:12px"><h2>How to read this</h2>
+        <p class="note">These are modelled estimates built on the assumptions shown, for planning a pilot. Real figures come from the pilot itself, which Riaya measures from day one (time to evaluation, referral completion, WHO-5 at day 0/30/84, repeat semen analysis at about 3 months). See <a href="insights.html">the programme dashboard</a> and <a href="https://github.com/yugesh1111/riaya">the evidence</a>.</p></div>
+    </section>
+  </div>
+</main>
+<script>
+const P = [
+  { k: "men", label: "Men offered Riaya per year", min: 1000, max: 200000, step: 1000, v: 20000, fmt: v => v.toLocaleString("en"), src: "Choose your rollout size" },
+  { k: "complete", label: "Complete the check", min: 30, max: 95, step: 1, v: 70, pct: 1, src: "Riaya funnel (pilot target); about 3 minutes, no name needed" },
+  { k: "advised", label: "Advised to see a clinician", min: 5, max: 60, step: 1, v: 30, pct: 1, src: "Riaya simulated cohort, from published effect sizes" },
+  { k: "reachRiaya", label: "Reach a clinician with Riaya", min: 20, max: 95, step: 1, v: 60, pct: 1, src: "Assumption: reviewed referral + booked clinic + reminders" },
+  { k: "reachUsual", label: "Reach a clinician without Riaya", min: 5, max: 80, step: 1, v: 25, pct: 1, src: "Assumption: men rarely self-refer; stigma, no clear route" },
+  { k: "monthsUsual", label: "Months until a man is assessed, usual pathway", min: 6, max: 36, step: 1, v: 12, src: "ASRM 2020: evaluation after 12 months of trying" },
+  { k: "monthsRiaya", label: "Months until assessed, with Riaya", min: 0.5, max: 6, step: 0.5, v: 1, src: "Riaya target: 48 h doctor review, 14-day appointment" },
+  { k: "plan", label: "Start the 12-week plan (of those who complete)", min: 5, max: 80, step: 1, v: 35, pct: 1, src: "Assumption; engagement measured at weeks 4, 8, 12" },
+  { k: "obese", label: "Of plan starters, men with obesity", min: 10, max: 60, step: 1, v: 32, pct: 1, src: "UAE National Health Survey 2017-18: 32.2% of Emirati men obese" },
+  { k: "lose", label: "Of them, lose and keep off weight", min: 5, max: 60, step: 1, v: 20, pct: 1, src: "Assumption; trial: sperm count ×1.41, kept at 52 weeks (Andersen 2022)" },
+  { k: "repeat", label: "Repeat tests avoided per man referred", min: 0, max: 2, step: 0.25, v: 0.5, src: "Results travel with the referral, so tests are not repeated" },
+  { k: "testCost", label: "Cost of one semen analysis (AED)", min: 100, max: 1000, step: 25, v: 350, src: "Assumption; set to local tariff" },
+  { k: "minutes", label: "Clinician minutes saved per referral", min: 0, max: 30, step: 1, v: 10, src: "Pre-filled history and results arrive before the visit" },
+  { k: "redflag", label: "Men with an urgent red flag", min: 0, max: 5, step: 0.1, v: 0.8, pct: 1, src: "Assumption; Riaya sends these to same-day care, never a queue" },
+];
+const S = Object.fromEntries(P.map(p => [p.k, p.v]));
+const fmt = n => Math.round(n).toLocaleString("en");
+function draw() {
+  const done = S.men * S.complete / 100, advised = done * S.advised / 100;
+  const reachR = advised * S.reachRiaya / 100, reachU = advised * S.reachUsual / 100;
+  const extra = reachR - reachU, months = reachR * Math.max(0, S.monthsUsual - S.monthsRiaya);
+  const plan = done * S.plan / 100, better = plan * S.obese / 100 * S.lose / 100;
+  const aed = reachR * S.repeat * S.testCost, hours = reachR * S.minutes / 60, urgent = done * S.redflag / 100;
+  document.getElementById("tiles").innerHTML = [
+    [fmt(extra), "more men assessed by a clinician each year", `${fmt(reachR)} with Riaya vs ${fmt(reachU)} usual`],
+    [fmt(months / 12), "years of waiting removed", `assessed after ~${S.monthsRiaya} month(s) instead of ${S.monthsUsual}`],
+    [fmt(plan), "men start a 12-week lifestyle plan", "goals, weekly check-ins, WHO-5 outcomes"],
+    [fmt(better), "men likely to raise their sperm count", "obese men who lose weight and keep it off (×1.41 in trial)"],
+    ["AED " + fmt(aed), "saved on repeat tests", `${fmt(reachR * S.repeat)} tests not repeated`],
+    [fmt(hours), "clinician hours freed", `${S.minutes} min per referral`],
+    [fmt(urgent), "urgent cases sent same day", "red flags bypass every queue"],
+    [fmt(done), "men complete a private check", "no name, no phone number"],
+  ].map(([v, k, d]) => `<div class="tile"><div class="v">${v}</div><div class="k">${k}</div><div class="d up">${d}</div></div>`).join("");
+  const max = Math.max(reachR, reachU, 1);
+  document.getElementById("bars").innerHTML = [["With Riaya", reachR, "#c9a86a"], ["Usual pathway", reachU, "#5b7584"]]
+    .map(([l, n, c]) => `<div class="bar"><span>${l}</span><div class="t"><i style="width:${100 * n / max}%;background:${c}"></i></div><span class="n">${fmt(n)}</span></div>`).join("");
+}
+document.getElementById("inputs").innerHTML = P.map(p => `<div class="in"><label for="i_${p.k}">${p.label}<b id="v_${p.k}">${p.fmt ? p.fmt(p.v) : p.v + (p.pct ? "%" : "")}</b></label>
+  <input type="range" id="i_${p.k}" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.v}"><div class="src">${p.src}</div></div>`).join("");
+P.forEach(p => document.getElementById("i_" + p.k).oninput = ev => {
+  S[p.k] = +ev.target.value; document.getElementById("v_" + p.k).textContent = p.fmt ? p.fmt(S[p.k]) : S[p.k] + (p.pct ? "%" : ""); draw();
+});
+draw();
+</script>
+</body>
+</html>
