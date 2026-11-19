@@ -27,6 +27,20 @@ def _fetch(lat, lon):
     return {"max_c": round(d["temperature_2m_max"][0]), "feels_c": round(d["apparent_temperature_max"][0]), "uv": round(d["uv_index_max"][0])}
 
 
+def _fetch_wttr(lat, lon):
+    """Second source (wttr.in, free, no key), used when Open-Meteo rate-limits the shared server."""
+    url = f"https://wttr.in/{lat},{lon}?format=j1"
+    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "riaya-heat/1.0"}), timeout=6) as r:
+        d = json.loads(r.read().decode())
+    day = d["weather"][0]
+    return {"max_c": round(float(day["maxtempC"])), "feels_c": round(max(float(h["FeelsLikeC"]) for h in day["hourly"])),
+            "uv": round(max(float(h.get("uvIndex", 0)) for h in day["hourly"]))}
+
+
+# Typical daily maximum (°C) by month across the UAE coast (NCM climate normals, rounded); the last resort, labelled "typical".
+TYPICAL_MAX = [24, 25, 29, 34, 39, 41, 42, 43, 40, 36, 30, 26]
+
+
 def band(feels):
     return "extreme" if feels >= 46 else "very_hot" if feels >= 40 else "hot" if feels >= 34 else "warm" if feels >= 28 else "mild"
 
@@ -54,14 +68,25 @@ def today(emirate, lang="en", fetch=_fetch):
     name_en, name_ar, lat, lon = EMIRATES[emirate]
     now = time.time()
     hit = _cache.get(emirate)
+    typical = False
     if not hit or now - hit[0] > 3600:
-        try:
-            hit = (now, fetch(lat, lon))
-            _cache[emirate] = hit
-        except Exception as e:
-            return {"emirate": emirate, "name": name_ar if L == "ar" else name_en, "available": False, "reason": type(e).__name__ + ": " + str(e)[:120],
-                    "emirates": [{"key": k, "name": v[1] if L == "ar" else v[0]} for k, v in EMIRATES.items()]}
+        w = None
+        for f in ((fetch, _fetch_wttr) if fetch is _fetch else (fetch,)):
+            try:
+                w = f(lat, lon)
+                break
+            except Exception:
+                continue
+        if w is None:
+            if fetch is not _fetch:
+                return {"emirate": emirate, "name": name_ar if L == "ar" else name_en, "available": False,
+                        "emirates": [{"key": k, "name": v[1] if L == "ar" else v[0]} for k, v in EMIRATES.items()]}
+            m = TYPICAL_MAX[time.gmtime(now + 4 * 3600).tm_mon - 1]
+            w, typical = {"max_c": m, "feels_c": m + 3, "uv": 8 if m >= 34 else 6}, True
+        hit = (now if not typical else now - 3000, w)   # retry a live source after 10 minutes when we fell back
+        _cache[emirate] = hit
     w = hit[1]
+    typical = typical or w.get("typical", False)
     b = band(w["feels_c"])
-    return {"emirate": emirate, "name": name_ar if L == "ar" else name_en, "available": True, **w, "band": b, "tip": TIPS[L][b], "why": WHY[L],
+    return {"emirate": emirate, "name": name_ar if L == "ar" else name_en, "available": True, **w, "typical": typical, "band": b, "tip": TIPS[L][b], "why": WHY[L],
             "source": SOURCE, "emirates": [{"key": k, "name": v[1] if L == "ar" else v[0]} for k, v in EMIRATES.items()]}

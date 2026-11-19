@@ -7,11 +7,11 @@
     en: { pcT: "Check a gym product", pcSub: "Supplements, 'test boosters', pre-workouts, injectables. Take a photo of the ingredients, or type them. Read on your phone; nothing is saved.",
           photo: "📷 Photo of the label", type: "Or type the ingredients", typePh: "e.g. Ostarine MK-2866, zinc, tribulus", check: "Check", reading: "Reading the label…",
           levels: { stop: "STOP", caution: "CAUTION", ok: "OK" }, source: "Source", heatT: "Today's heat", emirate: "Emirate", feels: "feels like", uv: "UV",
-          heatOff: "Today's forecast isn't available right now." },
+          heatOff: "Today's forecast isn't available right now.", typical: "typical for this month" },
     ar: { pcT: "افحص منتجاً رياضياً", pcSub: "مكملات، «معززات التستوستيرون»، منشطات ما قبل التمرين، الحقن. صوّر قائمة المكونات أو اكتبها. تُقرأ على هاتفك ولا يُحفظ شيء.",
           photo: "📷 صورة الملصق", type: "أو اكتب المكونات", typePh: "مثال: Ostarine MK-2866، زنك، تريبولوس", check: "افحص", reading: "جارٍ قراءة الملصق…",
           levels: { stop: "توقف", caution: "انتبه", ok: "مقبول" }, source: "المصدر", heatT: "حرارة اليوم", emirate: "الإمارة", feels: "المحسوسة", uv: "الأشعة",
-          heatOff: "توقعات اليوم غير متاحة الآن." },
+          heatOff: "توقعات اليوم غير متاحة الآن.", typical: "المعتاد في هذا الشهر" },
   };
   const Lg = () => (typeof LANG !== "undefined" && LANG === "ar" ? "ar" : "en");
   const x = k => T[Lg()][k];
@@ -60,7 +60,7 @@
     try { h = await API.get(`/api/heat?emirate=${encodeURIComponent(key)}&lang=${Lg()}`); } catch { return; }
     const sel = `<label class="small">${e(x("emirate"))} <select id="gEm">${h.emirates.map(m => `<option value="${e(m.key)}" ${m.key === h.emirate ? "selected" : ""}>${e(m.name)}</option>`).join("")}</select></label>`;
     host.innerHTML = h.available ? `<div class="card guard-heat g-heat-${e(h.band)}"><div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px">
-        <div><h3 style="margin:0">☀️ ${e(x("heatT"))} · ${e(h.name)}</h3><p class="g-temp"><b>${h.max_c}°</b> <span class="muted">${e(x("feels"))} ${h.feels_c}° · ${e(x("uv"))} ${h.uv}</span></p></div>${sel}</div>
+        <div><h3 style="margin:0">☀️ ${e(x("heatT"))} · ${e(h.name)}</h3><p class="g-temp"><b>${h.max_c}°</b> <span class="muted">${h.typical ? e(x("typical")) : `${e(x("feels"))} ${h.feels_c}° · ${e(x("uv"))} ${h.uv}`}</span></p></div>${sel}</div>
         <p style="margin:6px 0">${e(h.tip)}</p><p class="small muted" style="margin:0">${e(h.why)} <span>(${e(h.source)})</span></p></div>`
       : `<div class="card"><h3>☀️ ${e(x("heatT"))}</h3><p class="small muted">${e(x("heatOff"))}</p>${sel}</div>`;
     host.querySelector("#gEm").onchange = ev => { try { localStorage.setItem("riaya_emirate", ev.target.value); } catch {} heatCard(host); };
