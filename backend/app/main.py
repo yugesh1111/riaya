@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from . import pgstore
 from . import (prescribe, visit, assessment, care, companion, conversation, db, explain, fabric, guide, handover, ifhas, insights, labreport,
                labs, labtimeline, pathway, questionnaire, referral_loop, security, semen, sharing, wearables, wellbeing)
 from .knowledge import graph
@@ -31,6 +32,11 @@ CHANNELS = {"web", "chat", "watch", "sample", "whatsapp"}
 
 def startup():
     db.init()
+    try:
+        pgstore.init()
+    except Exception as e:  # the app still runs; tester feedback falls back to the local database
+        print("PostgreSQL unavailable:", e)
+        pgstore.URL = None
     problems = graph().validate()
     if problems:
         raise RuntimeError("Knowledge graph invalid: " + "; ".join(problems[:5]))
@@ -2688,16 +2694,19 @@ def tester_feedback(body: TesterIn, request: Request):
     except ValueError as e:
         raise HTTPException(422, str(e))
     tried = [t for t in body.tried if t in TESTER_PARTS]
-    with db.tx() as c:
-        c.execute("INSERT INTO tester_feedback VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                  (str(uuid.uuid4()), now, body.device, body.lang, json.dumps(tried), json.dumps(body.sus), score, body.clear, body.private_felt,
-                   body.voice_ok, body.would_use, int(body.recommend), security.seal(body.comment) if body.comment else None))
+    row = (str(uuid.uuid4()), now, body.device, body.lang, json.dumps(tried), json.dumps(body.sus), score, body.clear, body.private_felt,
+           body.voice_ok, body.would_use, int(body.recommend), security.seal(body.comment) if body.comment else None)
+    if pgstore.enabled():
+        pgstore.insert(row)
+    else:
+        with db.tx() as c:
+            c.execute("INSERT INTO tester_feedback VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", row)
     _tester_hits[ip].append(now)
     return {"ok": True, "sus": score}
 
 
 def _tester_summary(c, with_comments):
-    rows = c.execute("SELECT * FROM tester_feedback ORDER BY ts").fetchall()
+    rows = pgstore.rows() if pgstore.enabled() else c.execute("SELECT * FROM tester_feedback ORDER BY ts").fetchall()
     n = len(rows)
     avg = lambda k: round(statistics.mean([r[k] for r in rows if r[k] is not None]), 2) if any(r[k] is not None for r in rows) else None
     parts, devices = {}, {}
@@ -2716,7 +2725,7 @@ def _tester_summary(c, with_comments):
         m = out["sus_mean"]
         out["grade"] = "A (excellent)" if m >= 80.3 else "B (good)" if m >= 74 else "C (OK, about average)" if m >= 68 else "D (below average)" if m >= 51 else "F (poor)"
     if with_comments:
-        out["comments"] = [{"ts": r["ts"], "device": r["device"], "text": security.unseal(r["comment"])} for r in reversed(rows) if r["comment"]][:100]
+        out["comments"] = [{"ts": r["ts"], "device": r["device"], "text": security.unseal(bytes(r["comment"]))} for r in reversed(rows) if r["comment"]][:100]
     return out
 
 
