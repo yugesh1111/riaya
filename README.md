@@ -243,7 +243,8 @@ Settings (environment variables): `RIAYA_DATA_KEY` (Fernet key for encryption at
 - `docs/FEEDBACK_RESPONSE.md`: each point of the review feedback and where it is answered in the product
 - `docs/SECURITY.md`: every way someone could try to get at the data, what stops them, and what is still open
 - `docs/WELLBEING_QA_RESPONSE.md`: the organisers' 10 Wellbeing Q&A questions, what is covered, what was added and what is still open
-- `docs/VIDEO_PLAN.md`: the demo video plan, feature line-up and voiceover scripts (English and Arabic)
+- `docs/VIDEO_PLAN.md`: the demo video plan and feature line-up
+- `docs/VIDEO_SCRIPT.md`: the narration to read, scene by scene with timings, in English and Arabic, plus Napkin AI text
 - `docs/recovery/`: the API description captured from the live deployment, used to rebuild the backend after the repository was lost
 - `validation/REPORT.md`: triage vignettes, real-data model, simulated cohort, calibration, fairness, pathway simulation, limitations
 - `docs/RESEARCH_VERIFICATION.md`: every claim checked against the literature, including corrections
