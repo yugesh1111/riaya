@@ -10,6 +10,28 @@
 - Click inside the app before each take, because the privacy screen blurs it when the window loses focus.
 - Run `validation/run_validation.py --seed-demo` so the dashboards have data.
 
+## What to put on screen: clips and slides
+
+Every scene has a ready clip in `docs/videos/` (full quality, .webm) or `docs/gifs/`, plus slides from `docs/Riaya_Submission.pptx` to cut in between.
+
+| Scene | Clip | Slide to cut in |
+|---|---|---|
+| 0:00 The problem | `00-every-device.png` | Slide 1 (cover) |
+| 0:20 What it is | `17-feature-map` | Slide 4 (architecture) |
+| 0:35 Talk to it, English | `01-voice-check` | |
+| 1:05 Arabic | `02-arabic-accents`, `18-arabic-first` | |
+| 1:25 Summary | `03-summary-explained` | |
+| 1:45 Best changes + projection | `04-best-changes-projection` | |
+| 2:05 Gym product checker | `21-label-photo-check`, `05-gym-product-checker` | |
+| 2:20 Watch + heat | `07-watch-first`, `06-uae-heat-guard` | |
+| 2:35 Labs | `08-lab-forecast` | |
+| 2:55 12-week companion | `09-twelve-week-plan` | Slide 7 (evidence) |
+| 3:15 Referral loop | `13-privacy-controls` (letter preview), `14-doctor-and-closed-loop` | |
+| 3:45 Privacy | `20-first-time-setup`, `11-calculator-cover`, `19-minimise-blur-relock`, `12-native-locks`, `10-encrypted-vault`, `16-privacy-map` | Slide 9 (risks and safeguards) |
+| 4:15 Doctors | `14-doctor-and-closed-loop` | |
+| 4:30 Health authority | `15-dashboard-and-impact` | Slide 6 (success measures), slide 11 (path to pilot) |
+| 4:50 Close | `00-every-device.png` | Slide 14 (why Riaya stands out), slide 15 |
+
 ---
 
 ### 0:00 ★ The problem
@@ -57,6 +79,7 @@
 > When a doctor approves a referral, he chooses a clinic and can call it or message it on WhatsApp in one tap. Before anything is shared, he sees the exact letter the clinic will read. The specialist opens it with a one-time code, records the visit, and sends the summary back. Every referral has a deadline set by its urgency; late ones escalate, and the status is published in FHIR, the standard hospital systems read.
 
 ### 3:45 ★ Privacy he can feel
+*(Extra line for the minimise clip: "Switch apps and the screen blurs; come back and it's locked again.")*
 **On screen:** `20-cover-choice` → `21-calculator-cover` → `18-lock-iphone` / `19-lock-android` → `16-vault` → `28-privacy-map`
 > Privacy here isn't a policy page. At setup he chooses: a normal lock, or a cover. With the cover, anyone who opens Riaya sees a working calculator. His PIN and the equals sign open it. The lock looks native on iPhone and on Samsung. Reports live in an encrypted vault on his phone, and each one asks for Face ID again. Every time a doctor opens his record, he gets a message. And one switch pauses all sharing.
 

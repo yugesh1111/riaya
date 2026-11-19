@@ -50,6 +50,26 @@
 | Privacy screen in the app switcher | Calendar entries say only "Appointment" | Expiring second-opinion codes (1, 3 or 7 days) | Every doctor action logged | Retention he chooses (3–24 months) |
 | On-phone speech and photo reading | Heat by emirate, never GPS | Health authority sees groups of 5+ only | | Export or delete everything, any time |
 
+## 🎥 See every feature working
+
+<p align="center"><img src="docs/shots/00-every-device.png" width="100%" alt="One Riaya, every screen: iPhone, Samsung, iPad, Mac"></p>
+
+Every clip below was recorded from the running app. The full-quality videos are in [`docs/videos/`](docs/videos).
+
+| | |
+|:-:|:-:|
+| **Talk it through (voice or typing)**<br><img src="docs/gifs/01-voice-check.gif" width="300"><br>Understands "one seventy eight", "a year and a half", even a misheard "dayly"; shows what it understood; one-tap Undo | **Arabic first, four accents**<br><img src="docs/gifs/02-arabic-accents.gif" width="300"><br>Emirati · Saudi · Egyptian · Levantine, or English |
+| **First-time setup**<br><img src="docs/gifs/20-first-time-setup.gif" width="300"><br>Choose a normal lock or the calculator cover, set a PIN, then Face ID as its own step | **Calculator cover**<br><img src="docs/gifs/11-calculator-cover.gif" width="300"><br>A working calculator; 12 + 30 = 42; the PIN then "=" opens Riaya |
+| **Minimise → blur → locked again**<br><img src="docs/gifs/19-minimise-blur-relock.gif" width="300"><br>Blurred in the app switcher, one-tap hide, the lock on return | **Native locks**<br><img src="docs/gifs/12-native-locks.gif" width="300"><br>iPhone-style and Samsung-style keypads, ع \| EN switch |
+| **Explained summary**<br><img src="docs/gifs/03-summary-explained.gif" width="300"><br>What we saw, why it matters, evidence A–D, limits | **Best changes + 12-week projection**<br><img src="docs/gifs/04-best-changes-projection.gif" width="300"><br>Switch changes on and off; the forecast redraws |
+| **Photo of a gym product label**<br><img src="docs/gifs/21-label-photo-check.gif" width="300"><br>Read on the phone; Ostarine flagged STOP with the evidence | **Type a product instead**<br><img src="docs/gifs/05-gym-product-checker.gif" width="300"><br>Testosterone, steroids, SARMs, banned stimulants |
+| **UAE heat guard**<br><img src="docs/gifs/06-uae-heat-guard.gif" width="300"><br>Today's heat by emirate, never GPS | **Watch first**<br><img src="docs/gifs/07-watch-first.gif" width="300"><br>Apple Health export, then Apple Watch and Wear OS faces |
+| **Lab dashboard and forecast**<br><img src="docs/gifs/08-lab-forecast.gif" width="300"><br>Each lab's own range, next test due, projected value | **12-week companion**<br><img src="docs/gifs/09-twelve-week-plan.gif" width="300"><br>WHO-5, behaviour-change techniques, Ramadan mode |
+| **Encrypted vault**<br><img src="docs/gifs/10-encrypted-vault.gif" width="300"><br>Face ID / PIN again for each document | **Privacy controls**<br><img src="docs/gifs/13-privacy-controls.gif" width="300"><br>See the letter word for word, pause all sharing, choose retention |
+| **Doctor console + closed-loop board**<br><img src="docs/gifs/14-doctor-and-closed-loop.gif" width="300"><br>Review queue, deadlines by urgency, escalation, FHIR Task | **Dashboard + impact simulator**<br><img src="docs/gifs/15-dashboard-and-impact.gif" width="300"><br>k-anonymised outcomes; what a rollout could change |
+| **Privacy map**<br><img src="docs/gifs/16-privacy-map.gif" width="300"> | **How it works**<br><img src="docs/gifs/17-feature-map.gif" width="300"> |
+| **Arabic landing, ع \| EN switch**<br><img src="docs/gifs/18-arabic-first.gif" width="300"> | |
+
 ## 🎬 Screens
 
 | | | | |
@@ -244,6 +264,8 @@ Settings (environment variables): `RIAYA_DATA_KEY` (Fernet key for encryption at
 - `docs/SECURITY.md`: every way someone could try to get at the data, what stops them, and what is still open
 - `docs/WELLBEING_QA_RESPONSE.md`: the organisers' 10 Wellbeing Q&A questions, what is covered, what was added and what is still open
 - `docs/VIDEO_PLAN.md`: the demo video plan and feature line-up
+- `docs/Riaya_Submission.pptx` / `.pdf`: the challenge submission slides, filled in (team names and size to add)
+- `docs/gifs/`, `docs/videos/`, `docs/shots/`: every feature recorded from the running app
 - `docs/VIDEO_SCRIPT.md`: the narration to read, scene by scene with timings, in English and Arabic, plus Napkin AI text
 - `docs/recovery/`: the API description captured from the live deployment, used to rebuild the backend after the repository was lost
 - `validation/REPORT.md`: triage vignettes, real-data model, simulated cohort, calibration, fairness, pathway simulation, limitations
