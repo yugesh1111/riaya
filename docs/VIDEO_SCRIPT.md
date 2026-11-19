@@ -1,6 +1,26 @@
 # Riaya demo video: narration to read
 
-**Length:** about 5 minutes. The submission template sets no limit, so the video covers every feature. If you need a shorter cut, keep the scenes marked ★.
+**Length:** the submission form says **keep it under 3 minutes**. Submit the 2:51 cut below. The full read (4:21) covers every feature and can go in the README as the long version.
+
+## The 2:51 cut (for the submission)
+
+The voice track is `voice/riaya-narration-en-short.m4a` (2:43, your own recording, retakes removed). It isn't committed, because it is your voice. Put an 8-second silent title card in front of it, which makes 2:51 in total.
+
+| Video time | Voice says | On screen |
+|---|---|---|
+| 0:00 | (no voice, soft music) | Title card: "In the UAE, a man's side of fertility is usually looked at last. Riaya: a private front door to men's reproductive health." Then slide 1 |
+| 0:08 | "Riaya does five things…" | `17-feature-map` |
+| 0:17 | "He can simply talk to it…" | `01-voice-check` |
+| 0:35 | "And in Arabic…" | `02-arabic-accents` |
+| 0:46 | "In about three minutes he gets a summary…" | `03-summary-explained` |
+| 1:02 | "Then the part that's usually missing…" | `04-best-changes-projection` |
+| 1:14 | "Many young men in the Gulf…" | `21-label-photo-check` |
+| 1:29 | "When a doctor approves a referral…" | `13-privacy-controls`, then `14-doctor-and-closed-loop` |
+| 1:53 | "Privacy here isn't a policy page…" | `20-first-time-setup` → `11-calculator-cover` → `12-native-locks` → `10-encrypted-vault` |
+| 2:16 | "The health authority sees…" | `15-dashboard-and-impact` |
+| 2:34 | "We tested Riaya end to end…" | `00-every-device.png`, then slide 14 |
+
+Left out of the short cut: watch and heat, labs, the 12-week plan, and doctors. They appear in the slides and the README GIFs.
 
 **How to read it:** calmly, at about 140 words a minute. Each block is one scene. "On screen" says what to show; most scenes have a ready screenshot in `docs/shots/`, or you can record the live screen.
 

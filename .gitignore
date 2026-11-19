@@ -8,3 +8,4 @@ data/gbm_model.joblib
 data/gbm_meta.json
 data/uci_model.json
 .playwright-mcp/
+voice/
