@@ -1,0 +1,2 @@
+{ "name": "riaya-android", "private": true, "version": "1.0.0", "description": "Builds the Riaya and Calculator Android apps (Trusted Web Activity) from the live web app",
+  "scripts": { "build": "node build.js" }, "dependencies": { "@bubblewrap/core": "1.24.1" } }

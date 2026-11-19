@@ -25,12 +25,13 @@ async function boot() {
 function renderTop() {
   $("#top").innerHTML = `<div class="brand"><i></i>${t("app")}</div>
     <div class="spacer"></div>
-    ${API.token ? `<button class="chip" id="jBtn">${t("jOpen")}</button><button class="chip" id="pvBtn">${pv("privacyChip")}</button>` : ""}
+    ${API.token ? `<button class="chip" id="jBtn">${t("jOpen")}</button><button class="chip" id="vtBtn">🔐 ${LANG === "ar" ? "الخزنة" : "Vault"}</button><button class="chip" id="pvBtn">${pv("privacyChip")}</button>` : ""}
     <button class="chip" id="bigBtn" aria-pressed="${document.documentElement.classList.contains("big")}">${t("bigger")}</button>
     <a class="chip" href="graph.html">${LANG === "ar" ? "خريطة الأدلة" : "Evidence map"}</a>
     <button class="chip" id="langBtn">${t("lang")}</button>`;
   if ($("#jBtn")) $("#jBtn").onclick = () => renderJourney();
   if ($("#pvBtn")) $("#pvBtn").onclick = () => renderPrivacy();
+  if ($("#vtBtn")) $("#vtBtn").onclick = () => renderVault();
   $("#bigBtn").onclick = () => { document.documentElement.classList.toggle("big"); store.set("big", document.documentElement.classList.contains("big") ? "1" : ""); };
   $("#langBtn").onclick = () => { LANG = LANG === "ar" ? "en" : "ar"; store.set("lang", LANG); applyLang(); demoBanner(); renderTop(); rerender(); };
 }
@@ -682,6 +683,15 @@ const PV = {
     restoreLink: "لديك رمز استرداد؟ استعد فحوصاتك", privacyChip: "الخصوصية" },
 };
 const pv = k => PV[LANG][k];
+
+async function renderVault() {
+  rerender = renderVault;
+  setWide(false);
+  document.body.classList.remove("landing");
+  view().innerHTML = `<div id="vaultHost"></div><p><button class="btn ghost" id="vtBack">${t("jOpen")}</button></p>`;
+  $("#vtBack").onclick = () => renderJourney();
+  if (window.Vault) await Vault.render($("#vaultHost"));
+}
 
 async function renderPrivacy() {
   rerender = renderPrivacy;

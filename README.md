@@ -4,82 +4,107 @@ A privacy-first, Arabic-first pre-screen that helps men in Abu Dhabi understand 
 
 ## All features at a glance
 
-Works in any browser and installs as an app on **iPhone and Android** (PWA). Arabic first, fully in English too. Status: ✅ working and tested · 🟡 ready but not connected to a real-world service.
+Riaya works in any browser and installs on **iPhone, Android and Mac**: as a web app from the browser, as an Android APK, or as a Mac app (DMG). It is Arabic first and fully in English too. Status: ✅ working and tested · 🟡 ready but not connected to a real-world service.
 
-| # | Feature | What it does | Where | Status |
-|---|---|---|---|---|
-| **Getting started** |||||
-| 1 | Private front door | No name or phone number; a revocable recovery code instead of an account | `/` | ✅ |
-| 2 | Guided tour | Two-minute auto-playing walk through a sample check, with narration, spotlight and play/pause | `/` → "Take a guided tour" | ✅ |
-| 3 | Talk it through (voice) | The check as a spoken conversation. He talks, Riaya listens, understands and replies out loud | `/chat.html` | ✅ |
-| 4 | Language and accent choice | Arabic or English, then accent: Emirati, Saudi, Egyptian, Levantine (or British, American, Indian English). Accent steers recognition and the voice | `/chat.html` start screen | ✅ |
-| 5 | Natural voices | Picks the device's most natural voice (neural, premium or enhanced first); speaks sentence by sentence with natural pauses; "hear this voice" preview | `js/voice.js` | ✅ |
-| 6 | On-phone speech (private mode) | Whisper runs inside the browser so audio never leaves the phone | `js/voice.js` | ✅ |
-| 7 | Spoken-number understanding | "one seventy eight" = 178, "سنة ونص" = 18 months, "ما عندي مانع" = yes; a half-heard duration is asked again, never guessed | `js/nlu.js` | ✅ |
-| 7a | Voice demo mode | `chat.html?demo=en` / `?demo=ar`: recorded answers from a man play aloud and are recognised on the phone by Whisper (base for English, small for Arabic); if a clip is misheard, the screen says so | `/chat.html?demo=en` | ✅ |
-| 8 | WhatsApp check | The same check over WhatsApp (Twilio), with an in-app demo | `/whatsapp.html` | 🟡 needs a Twilio number |
-| 9 | Detailed form | Validated instruments: STOP-Bang, AUDIT-C, PHQ-2, PSS-4, ADAM | `/` | ✅ |
-| **Devices and tests** |||||
-| 10 | Watch first | Upload an Apple Health export and see what the watch alone suggests, before answering anything | `/` → Watch first | ✅ |
-| 11 | On-your-wrist preview | His own data as a watch glance: Apple Watch (square) and Wear OS / Garmin (round) faces, with sleep and step rings, HRV, one tip and a discreet check-in | Watch-first results | ✅ |
-| 12 | Other devices | Health Connect, Garmin, Fitbit, Dexcom/Libre CGM, generic CSV; personal baseline | `backend/app/wearables.py` | ✅ |
-| 13 | Scan a lab report | Photograph each page; auto-enhanced, read on the phone (English and Arabic OCR), joined into one PDF and filed by date, **kept on the phone only** | Tests step → "Scan pages" | ✅ |
-| 14 | Lab report reading | PDF, photo or text; keeps each lab's printed range, reads his age, scores reading confidence, checks how the sample was taken; he corrects before saving | `backend/app/labreport.py` | ✅ |
-| 15 | Lab dashboard and forecast | Results saved, in range now, what is moving, next test due; trend line projected to the next test with a likely range; early alert when a value may cross the lab's limit | My lab results | ✅ |
-| 16 | Doctor checks lab values | Each saved value is accepted, corrected or set aside by a doctor | Clinician console | ✅ |
-| 17 | Semen analysis and blood tests | WHO 2021 limits; testosterone, LH, FSH, HbA1c, vitamin D; genomic flag | Tests step | ✅ |
-| 18 | Clothing check | Reads a care label and gives a groin-heat index | `/fabric.html` | ✅ |
-| **Explainable insights** |||||
-| 19 | Explained summary | Dial, the factor he can change most, what we saw / why it matters / evidence grade / what helps / limits | Summary | ✅ |
-| 20 | Evidence map | 69 factors, 148 graded links, 95 references | `/graph.html` | ✅ |
-| 21 | Ask about your summary | Answers built only from his summary and the evidence; guardrails for urgent symptoms, medicines and "am I infertile?" | Summary → Ask | ✅ |
-| 22 | Safe next steps | Now / next weeks / 3 months / please don't / get help sooner | Summary | ✅ |
-| **Prescriptive and predictive** |||||
-| 23 | Your best changes | Each change ranked by effect × evidence ÷ effort; the best three together | Summary → Your plan | ✅ |
-| 24 | 12-week projection | How his signals could move if he does nothing, half or all of the plan; switch changes on and off | Summary → Your plan | ✅ |
-| 25 | Riaya-Net | Our own small neural network, fine-tuned on real data, runs on the phone; clinician second opinion only | `docs/RIAYA_NET.md` | ✅ |
-| 26 | Dropout early warning | Coordinators see who may fall off the pathway, with every reason | Coordinator board | ✅ |
-| **12-week companion** |||||
-| 27 | Goals and weekly check-ins | Up to three goals from his own drivers, doctor-reviewed, weekly adherence and a measure, trend charts | My plan | ✅ |
-| 28 | WHO-5 wellbeing outcomes | Day 0, ~30 and ~84; 10-point meaningful change; low score offers a private doctor talk and the 800HOPE line | My plan | ✅ |
-| 29 | Behaviour-change design | Each goal shows its COM-B target and BCT Taxonomy v1 techniques ("Why this works") | My plan | ✅ |
-| 30 | Just-in-time nudges (JITAI) | Hourly decision: at most one well-timed nudge, never in quiet hours or while fasting; every decision explained | `backend/app/wellbeing.py` | ✅ |
-| 31 | Fresh start after a lapse | Two weak or missed weeks → keep one goal, name the barrier, get an if-then plan | My plan | ✅ |
-| 32 | Ramadan mode | Fasting-aware goals, check-ins after iftar, no nudges while fasting, test-timing notes; follows the calendar | My plan | ✅ |
-| **Connected referral journey** |||||
-| 33 | My journey | Check → doctor review → clinic → appointment → visit → visit summary → follow-up → re-check | My journey | ✅ |
-| 34 | Doctor review | Every specialist referral approved, changed or rejected (with reason); rapid 24–48 h review with a live timer | Clinician console | ✅ |
-| 35 | Care Connect | Verified clinic directory, appointment request with preferred times, coordinator confirms, "Appointment"-only calendar entry | Book your visit | ✅ |
-| 36 | Call / WhatsApp / save clinic | One tap to the clinic's official phone or WhatsApp; save to contacts under a discreet name | Book your visit | ✅ |
-| 37 | My own doctor | Pick the doctor from phone contacts (Android) or type the number (iPhone); call or send the handover code on WhatsApp; kept on the phone | Book your visit | ✅ |
-| 38 | Clinic portal | Specialist opens the referral with his handover code, records attendance, the visit summary and tests ordered, messages him | `/clinic.html` | ✅ |
-| 39 | Get ready for your visit | Results to bring, semen-test and morning-testosterone preparation, questions to ask | Book your visit | ✅ |
-| 40 | Closed-loop tracking | Time limits by urgency, escalation to coordinator then clinical lead, on-time rate | Coordinator board | ✅ |
-| 41 | FHIR R4 exports | Pre-screen bundle, referral letter, and the referral as a FHIR Task (requested → accepted → in-progress → completed) | API | ✅ (Malaffi/NABIDH/Riayati 🟡) |
-| 42 | Messages and video | Encrypted messages and voice notes with the doctor; private video room | Journey | ✅ (public Jitsi by default; self-host in the UAE for production) |
-| 43 | Automatic reminders | One discreet message per stalled stage; never if he turned reminders off or paused sharing | Automatic | ✅ |
-| 44 | Visit ratings | Respect, privacy, explanation, would recommend; clinic averages only at 5+ ratings | After a visit | ✅ |
-| 45 | Partner mode | A revocable link that shows his wife only that he completed the check | Summary → Care & sharing | ✅ |
-| **Privacy and control** |||||
-| 46 | One switch pauses all sharing | Doctor, coordinator and clinic lose access at once; appointments stay | Privacy | ✅ |
-| 47 | Choose what each recipient sees | Per recipient: answers, devices, labs, plan; applies at once, even to codes already given | Privacy | ✅ |
-| 48 | See exactly what they'll see | The referral letter word for word, updating live as he ticks boxes; his questions go at the top | Care & sharing | ✅ |
-| 49 | Second-opinion codes | He picks the parts and 1, 3 or 7 days; view only | Privacy | ✅ |
-| 50 | Retention he chooses | Until he deletes, or 3–24 months after his last visit, then erased | Privacy | ✅ |
-| 51 | Access log and consent receipts | Who opened his record, and a receipt for every permission given or withdrawn | Privacy | ✅ |
-| 52 | Privacy screen | One tap covers the app with a neutral wellness card; blurs when he switches apps | Every page | ✅ |
-| 52a | Locked by default | After his first summary Riaya asks for a 4–6 digit PIN (Face ID / fingerprint optional). Every opening, and every return after 15 s away, shows the lock first; the PIN is kept only as a salted PBKDF2 hash; 5 wrong tries pause input | Every page | ✅ |
-| 52b | Encrypted documents on the phone | Scanned reports and files are encrypted with AES-256-GCM using a key that cannot be exported from the browser; they open only while unlocked | My lab results | ✅ |
-| 52c | Calculator disguise | Install Riaya as "Calculator" with a calculator icon; it is a working calculator, and his PIN then "=" opens Riaya | Privacy → Disguise, `/calc.html` | ✅ |
-| 52d | Doctors sign in from the same app | "I'm a doctor" on the start screen opens the clinician console, which has its own PIN lock for shared computers | `/` → I'm a doctor | ✅ |
-| 53 | Encryption, export, delete | Encrypted at rest; download everything; delete everything | Privacy | ✅ |
-| **For the health authority** |||||
-| 54 | Programme dashboard | k-anonymised funnel, time to care, drivers, fairness, clinic ratings, **30+ day outcomes** (engagement, WHO-5 change) | `/insights.html` | ✅ |
-| 55 | Doctor feedback on findings | Agree / disagree per finding, aggregated to improve explanations | Clinician console | ✅ |
-| 56 | Validation | Triage vignettes, real-data model, calibration, fairness, measured scenario checks | `validation/` | ✅ |
-| 57 | Accessibility | Automated WCAG 2.2 AA audit with no violations, keyboard and screen-reader support, reduced motion | All pages | ✅ |
+### 🔒 Security and privacy
+| # | Feature | What it does | Status |
+|---|---|---|---|
+| S1 | No identity needed | No name, phone, email or Emirates ID. A random token on his phone, and a recovery code to move phones | ✅ |
+| S2 | Locked by default | A PIN is required after his first summary. Every opening, and every return after 15 s away, shows the lock. The PIN is stored only as a PBKDF2 hash, and wrong tries pause input | ✅ |
+| S3 | Face ID / Touch ID / fingerprint | Offered as its own step after the PIN, named for the device (Face ID on iPhone, Touch ID on Mac, fingerprint on Android), checked on the phone | ✅ |
+| S4 | Native-looking lock | iPhone/Mac: an iOS-style passcode pad with letters. Samsung/Android: a flat One UI keypad. Both with an ع \| EN switch | ✅ |
+| S5 | Document vault | His reports and doctor documents live only on his device, encrypted (AES-256-GCM, non-exportable key). Each one asks for Face ID or the PIN again to open, and closes when he leaves the app. Doctors have their own vault | ✅ |
+| S6 | Calculator disguise | Installs as "Calculator" with a calculator icon and works as one. His PIN followed by "=" opens Riaya | ✅ |
+| S7 | Told when someone opens his record | A private message every time a doctor or clinic opens his summary, labs or referral: who, what and when | ✅ |
+| S8 | One switch pauses all sharing | Doctor, coordinator and clinic lose access at once; appointments stay | ✅ |
+| S9 | Choose what each recipient sees | Answers, devices, labs and plan, per recipient. Applies at once, even to codes already given | ✅ |
+| S10 | See exactly what they'll see | The referral letter word for word, updating live as he ticks boxes | ✅ |
+| S11 | Access log and consent receipts | Who opened his record, and a receipt for every permission given or withdrawn | ✅ |
+| S12 | Retention he chooses | Until he deletes it, or 3–24 months after his last visit, then erased | ✅ |
+| S13 | Privacy screen | One tap hides the app behind a neutral wellness card; the screen blurs in the app switcher | ✅ |
+| S14 | Server hardening | Encrypted at rest, strict Content Security Policy, HSTS, no framing, limits on wrong sign-ins and codes, no caching of health data | ✅ |
+| S15 | Second-opinion codes | He picks the parts to share and how long the code lasts (1, 3 or 7 days); view only | ✅ |
+| S16 | Export and delete | Download everything; delete everything | ✅ |
 
-See `docs/WELLBEING_QA_RESPONSE.md` for how these answer the organisers' Wellbeing Q&A briefing, and `docs/FEEDBACK_RESPONSE.md` for the review feedback.
+### 🧭 Usability and accessibility
+| # | Feature | What it does | Status |
+|---|---|---|---|
+| U1 | Talk it through (voice) | The check as a conversation. He speaks, and Riaya understands and replies out loud | ✅ |
+| U2 | Language and accent | Arabic or English, then Emirati, Saudi, Egyptian or Levantine (or British, American or Indian English) | ✅ |
+| U3 | Natural voices | Uses the device's most natural voice, speaks sentence by sentence, and has a "hear this voice" preview | ✅ |
+| U4 | On-phone speech (private mode) | Whisper runs in the browser, so audio never leaves the phone | ✅ |
+| U5 | Spoken numbers and dialect | "one seventy eight" = 178, "سنة ونص" = 18 months, "ما عندي مانع" = yes. A half-heard answer is asked again, never guessed | ✅ |
+| U6 | ع \| EN switch everywhere | A two-part language switch on every page and on the lock screen | ✅ |
+| U7 | Guided tour and voice demo | A 2-minute tour of a sample check; `chat.html?demo=en` / `?demo=ar` plays a recorded man's answers, recognised on the phone | ✅ |
+| U8 | Accessibility | Automated WCAG 2.2 AA audit with no violations, keyboard and screen-reader support, reduced motion, bigger text | ✅ |
+| U9 | Doctors use the same app | "I'm a doctor" on the start screen opens the clinician console, which has its own lock | ✅ |
+| U10 | WhatsApp check | The same check over WhatsApp | 🟡 needs a Twilio number |
+
+### 🧠 Explainable, predictive and prescriptive intelligence
+| # | Feature | What it does | Status |
+|---|---|---|---|
+| I1 | Explained summary | What we saw, why it matters, evidence grade, what helps, limits | ✅ |
+| I2 | Evidence map | 69 factors, 148 graded links, 95 references | ✅ |
+| I3 | Ask about your summary | Answers only from his summary and the evidence; guardrails for urgent symptoms, medicines and "am I infertile?" | ✅ |
+| I4 | Your best changes | Ranked by effect × evidence ÷ effort; the best three together | ✅ |
+| I5 | 12-week projection | His signals if he does nothing, half or all of the plan | ✅ |
+| I6 | Lab dashboard and forecast | Results in range, what is moving, next test due, a projected value with a likely range, and an alert before a limit is crossed | ✅ |
+| I7 | Riaya-Net | Our own small model, fine-tuned on real data, runs on the phone; a clinician second opinion only | ✅ |
+| I8 | Dropout early warning | Coordinators see who may fall off the pathway, with reasons | ✅ |
+
+### 📱 Devices and tests
+| # | Feature | What it does | Status |
+|---|---|---|---|
+| D1 | Watch first | Apple Health export first: what the watch alone suggests | ✅ |
+| D2 | On-your-wrist preview | His own data on an Apple Watch face and a round Wear OS / Garmin face | ✅ |
+| D3 | Other devices | Health Connect, Garmin, Fitbit, Dexcom/Libre CGM, CSV, with a personal baseline | ✅ |
+| D4 | Scan a lab report | Photograph each page; auto-enhanced, read on the phone (EN + AR), joined into one encrypted PDF filed by date | ✅ |
+| D5 | Lab report reading | Keeps each lab's printed range, reads his age, scores reading confidence; he corrects before saving; a doctor checks each value | ✅ |
+| D6 | Semen analysis, hormones, metabolic | WHO 2021 limits; testosterone, LH, FSH, HbA1c, vitamin D; genomic flag | ✅ |
+| D7 | Clothing check | Reads a care label and gives a groin-heat index | ✅ |
+
+### 🔁 12-week companion (behaviour change)
+| # | Feature | What it does | Status |
+|---|---|---|---|
+| C1 | Goals and weekly check-ins | Up to 3 goals from his own drivers, doctor-reviewed, with trend charts | ✅ |
+| C2 | WHO-5 outcomes | Day 0, ~30 and ~84; a 10-point change counts as meaningful; a low score offers a doctor and 800HOPE | ✅ |
+| C3 | Behaviour-change design | COM-B targets and BCT Taxonomy v1 techniques for each goal | ✅ |
+| C4 | Just-in-time nudges | At most one well-timed nudge; never at night or while fasting; every decision explained | ✅ |
+| C5 | Fresh start after a lapse | One smaller goal and an if-then plan | ✅ |
+| C6 | Ramadan mode | Fasting-aware goals, check-ins after iftar | ✅ |
+
+### 🏥 Connected referral journey
+| # | Feature | What it does | Status |
+|---|---|---|---|
+| R1 | My journey | Check → review → clinic → appointment → visit → summary → follow-up → re-check | ✅ |
+| R2 | Doctor review | Every specialist referral approved, changed or rejected with a reason; rapid 24–48 h review | ✅ |
+| R3 | Care Connect | Verified clinics, appointment requests, coordinator confirms | ✅ |
+| R4 | Call / WhatsApp / save clinic | One tap to the clinic's official lines; save under a discreet name | ✅ |
+| R5 | My own doctor | Pick from contacts (Android) or type the number (iPhone); send the handover code | ✅ |
+| R6 | Clinic portal | The specialist opens the referral with a code, records the visit and messages him | ✅ |
+| R7 | Get ready for your visit | Results to bring, test preparation, questions to ask | ✅ |
+| R8 | Closed-loop tracking | Time limits by urgency, escalation, on-time rate | ✅ |
+| R9 | FHIR R4 | Pre-screen bundle, referral letter, and the referral as a FHIR Task | ✅ (Malaffi/NABIDH/Riayati 🟡) |
+| R10 | Messages, voice notes, video | Encrypted messages with the doctor; private video room | ✅ |
+| R11 | Automatic reminders | One discreet message per stalled stage | ✅ |
+| R12 | Visit ratings and partner mode | Ratings per clinic at 5+; a revocable link for his wife | ✅ |
+
+### 📊 For the health authority
+| # | Feature | What it does | Status |
+|---|---|---|---|
+| A1 | Programme dashboard | k-anonymised funnel, time to care, drivers, fairness, clinic ratings, 30+ day outcomes | ✅ |
+| A2 | Doctor feedback on findings | Agree or disagree per finding, aggregated | ✅ |
+| A3 | Validation | Triage vignettes, real-data model, calibration, fairness, measured scenario checks | ✅ |
+
+### 📦 Platforms
+| # | Platform | How | Status |
+|---|---|---|---|
+| P1 | iPhone / iPad | Safari → Add to Home Screen (normal Riaya, or the Calculator disguise) | ✅ |
+| P2 | Android | `android/Riaya.apk` and `android/Calculator.apk` (Trusted Web Activity, built with Bubblewrap); or Chrome → Install | ✅ |
+| P3 | Mac | `desktop/` builds `Riaya-1.0.0-arm64.dmg` (Electron) | ✅ |
+| P4 | Any browser | https://riaya-xhby.onrender.com | ✅ |
+
+See `docs/SECURITY.md` (attacks and protections), `docs/WELLBEING_QA_RESPONSE.md` (the organisers' Q&A briefing) and `docs/FEEDBACK_RESPONSE.md` (the review feedback).
 
 ## What's in it
 - **Evidence graph** (`knowledge/graph.json`): 69 factors and 148 cause→effect links, each with an evidence grade (A–D) and a source (95 references). It also holds 23 measurable signals (watch, phone, CGM, questionnaire, lab) with thresholds, and 8 red flags. The graph drives scoring and explanations, and is validated at server start.
@@ -141,6 +166,7 @@ Settings (environment variables): `RIAYA_DATA_KEY` (Fernet key for encryption at
 
 ## Docs
 - `docs/FEEDBACK_RESPONSE.md`: each point of the review feedback and where it is answered in the product
+- `docs/SECURITY.md`: every way someone could try to get at the data, what stops them, and what is still open
 - `docs/WELLBEING_QA_RESPONSE.md`: the organisers' 10 Wellbeing Q&A questions, what is covered, what was added and what is still open
 - `docs/VIDEO_PLAN.md`: the demo video plan, feature line-up and voiceover scripts (English and Arabic)
 - `docs/recovery/`: the API description captured from the live deployment, used to rebuild the backend after the repository was lost

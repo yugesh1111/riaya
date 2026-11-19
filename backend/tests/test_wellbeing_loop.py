@@ -139,3 +139,13 @@ def test_referral_loop_task_and_escalation(client, doc):
 def test_outcomes_are_k_anonymised(client, doc):
     out = client.get("/api/insights", headers=doc).json()["outcomes"]
     assert "n" in out
+
+
+def test_patient_is_told_when_a_doctor_opens_his_record(client, doc):
+    h, aid = man(client, review=True)
+    client.get(f"/api/clinician/cases/{aid}", headers=doc)
+    client.get(f"/api/clinician/cases/{aid}", headers=doc)   # a second look within 30 minutes does not send another
+    r = client.get(f"/api/assessments/{aid}/messages", headers=h).json()
+    msgs = r["messages"] if isinstance(r, dict) else r
+    notes = [m for m in msgs if "🔒" in (m.get("body") or "")]
+    assert len(notes) == 1 and "doctor" in notes[0]["body"].lower()

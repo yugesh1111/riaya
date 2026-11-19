@@ -63,8 +63,24 @@ async def headers(request, call_next):
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["Referrer-Policy"] = "no-referrer"
     resp.headers["X-Frame-Options"] = "DENY"
-    resp.headers["Permissions-Policy"] = "camera=(), geolocation=(), microphone=(self)"
+    resp.headers["Permissions-Policy"] = "camera=(self), geolocation=(), microphone=(self), payment=(), usb=()"
+    resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    resp.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    resp.headers["Content-Security-Policy"] = CSP
     return resp
+
+
+# Only Riaya itself and the two public CDNs the app uses (scripts), plus the on-phone speech and OCR model hosts
+# (downloads). No other site can run code in Riaya, frame it, or receive form posts from it.
+CSP = "; ".join([
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+    "worker-src 'self' blob: https://cdn.jsdelivr.net",
+    "connect-src 'self' blob: data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://huggingface.co https://*.huggingface.co https://*.hf.co https://tessdata.projectnaptha.com",
+    "img-src 'self' data: blob:", "media-src 'self' blob: data:", "font-src 'self' data:",
+    "style-src 'self' 'unsafe-inline'", "frame-src 'self' blob:", "object-src 'none'", "base-uri 'self'",
+    "form-action 'self'", "frame-ancestors 'none'",
+])
 
 
 # ------------------------------------------------------------------ auth helpers
@@ -159,6 +175,32 @@ def _final_level(row, ref):
 def _message(c, aid, sender, body):
     c.execute("INSERT INTO messages (id, assessment_id, sender, body, ts) VALUES (?,?,?,?,?)",
               (str(uuid.uuid4()), aid, sender, security.seal(body), time.time()))
+
+
+# ------------------------------------------------------------------ he is told every time someone opens his record
+NOTIFY_ON = {"view_case", "open_share", "view_labs", "clinic_view", "handover_generated"}
+WHO = {"en": {"clinician": "a Riaya doctor", "clinic": "the clinic you chose"}, "ar": {"clinician": "طبيب من رعاية", "clinic": "العيادة التي اخترتها"}}
+
+
+def _access(actor, action, aid):
+    """Audits the access, then tells him in a private message: who opened what, and when. At most once per 30 minutes
+    for the same kind of access, so a doctor reading his case does not flood his inbox."""
+    db.audit(actor, action, aid)
+    if action not in NOTIFY_ON or not aid:
+        return
+    with db.tx() as c:
+        row = c.execute("SELECT a.id, u.lang FROM assessments a JOIN users u ON u.id=a.user_id WHERE a.id=? AND a.simulated=0", (aid,)).fetchone()
+        if not row or c.execute("SELECT 1 FROM events WHERE assessment_id=? AND type='access_notice' AND detail=? AND ts>?",
+                                (aid, action, time.time() - 1800)).fetchone():
+            return
+        L = "ar" if (row["lang"] or "ar") == "ar" else "en"
+        who = WHO[L]["clinic" if str(actor).startswith("clinic:") else "clinician"]
+        what = sharing.ACCESS_TEXT[L].get(action, action)
+        when = time.strftime("%H:%M", time.gmtime(time.time() + 4 * 3600))
+        body = (f"🔒 {what} ({who}, {when}). إن لم تكن تتوقع ذلك، أوقف كل المشاركة من «الخصوصية» بلمسة واحدة."
+                if L == "ar" else f"🔒 {what} ({who}, {when}). Not expecting this? Pause all sharing in Privacy with one switch.")
+        _message(c, aid, "riaya", body)
+        c.execute("INSERT INTO events VALUES (?,?,?,?)", (time.time(), aid, "access_notice", action))
 
 
 # ------------------------------------------------------------------ public reference data
@@ -1437,12 +1479,25 @@ class LoginIn(BaseModel):
     password: str
 
 
+_login_fails = {}
+
+
 @app.post("/api/clinician/login")
-def login(body: LoginIn):
+def login(body: LoginIn, request: Request):
+    """Five wrong passwords from one address, or for one username, within 15 minutes pause sign-in for 15 minutes."""
+    now = time.time()
+    keys = [f"ip:{request.client.host if request.client else '?'}", f"user:{body.username.lower()}"]
+    for k in keys:
+        _login_fails[k] = [t for t in _login_fails.get(k, []) if now - t < 900]
+        if len(_login_fails[k]) >= 5:
+            db.audit(body.username, "login_blocked")
+            raise HTTPException(429, "Too many attempts. Try again in 15 minutes.")
     with db.tx() as c:
         row = c.execute("SELECT * FROM clinicians WHERE username=?", (body.username,)).fetchone()
         if not row or not security.check_password(body.password, row["salt"], row["pw_hash"]):
             db.audit(body.username, "login_failed")
+            for k in keys:
+                _login_fails.setdefault(k, []).append(now)
             raise HTTPException(401, "Invalid credentials")
         token = security.new_token()
         now = time.time()
@@ -1532,7 +1587,7 @@ def case(aid: str, clin=Depends(current_clinician)):
         row = _visible(c, aid)
         ref = _referral(c, aid)
         msgs = _messages(c, aid)
-    db.audit(clin, "view_case", aid)
+    _access(clin, "view_case", aid)
     answers = security.unseal(row["answers"]) or {}
     result = _with_models(security.unseal(row["result"]), answers)
     with db.tx() as c:
@@ -1571,7 +1626,7 @@ def open_share(code: str, clin=Depends(current_clinician)):
         if not s:
             raise HTTPException(404, "Code invalid, expired or revoked")
         c.execute("UPDATE shares SET used_by=? WHERE code=?", (clin, code.upper()))
-    db.audit(clin, "open_share", s["assessment_id"])
+    _access(clin, "open_share", s["assessment_id"])
     return {"assessment_id": s["assessment_id"]}
 
 
@@ -1709,7 +1764,7 @@ def get_handover(aid: str, clin=Depends(current_clinician)):
             c.execute("UPDATE referrals SET handover_at=? WHERE id=?", (time.time(), ref["id"]))
         allowed = sharing.get(c, row["user_id"])[sharing.access_mode(c, row, clin)]
         out, _, _ = _package(c, row, allowed, clin)
-    db.audit(clin, "handover_generated", aid)
+    _access(clin, "handover_generated", aid)
     return {"bundle": out["bundle"], "letter": out["letter"], "withheld": out["withheld"]}
 
 
@@ -1720,7 +1775,7 @@ def case_labs(aid: str, clin=Depends(current_clinician)):
         if "labs" not in sharing.get(c, row["user_id"])[sharing.access_mode(c, row, clin)]:
             raise HTTPException(403, "He has not shared his lab results")
         pts = _lab_points(c, "user_id=?", (row["user_id"],), "en")
-    db.audit(clin, "view_labs", aid)
+    _access(clin, "view_labs", aid)
     return {"series": labtimeline.series(pts, "en")}
 
 
@@ -2347,7 +2402,7 @@ def clinic_case(clinic=Depends(current_clinic)):
     labs, withheld = letter["labs"], letter["withheld"]
     answers = security.unseal(row["answers"]) or {}
     view = assessment.user_view(result, "en")
-    db.audit(clinic["actor"], "clinic_view", aid)
+    _access(clinic["actor"], "clinic_view", aid)
     return {"id": aid, "letter": letter["letter"], "fhir": letter["bundle"], "withheld": withheld, "allowed": allowed,
             "level": _final_level(row, ref), "doctor_reviewed": bool(ref and ref["reviewed_at"]), "next_step": view["next_step"],
             "tests_suggested": view["tests"], "tests_have": _tests_have(result), "labs": labs,

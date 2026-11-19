@@ -25,9 +25,9 @@ async function start() {
   GRAPH = GRAPH || await API.get("/api/graph");
   $("#view").innerHTML = `<div class="tabs row" style="margin-bottom:12px">
     <button class="chip on" data-t="queue">Review queue</button><button class="chip" data-t="labReview">Lab review</button><button class="chip" data-t="plans">Plans</button><button class="chip" data-t="appointments">Appointments</button><button class="chip" data-t="clinics">Clinics</button><button class="chip" data-t="pathwayBoard">Pathway</button><button class="chip" data-t="metrics">Outcomes & fairness</button>
-    <button class="chip" data-t="audit">Access log</button><a class="chip" href="insights.html">Programme dashboard</a><span class="spacer"></span>
+    <button class="chip" data-t="vault">🔐 Vault</button><button class="chip" data-t="audit">Access log</button><a class="chip" href="insights.html">Programme dashboard</a><span class="spacer"></span>
     <input type="text" id="code" placeholder="Share code" style="width:160px"><button class="chip" id="open">Open</button></div><div id="tab"></div>`;
-  $$(".tabs [data-t]").forEach(b => b.onclick = () => { $$(".tabs [data-t]").forEach(x => x.classList.toggle("on", x === b)); ({ queue, labReview, plans, appointments, clinics, metrics, audit, pathwayBoard })[b.dataset.t](); });
+  $$(".tabs [data-t]").forEach(b => b.onclick = () => { $$(".tabs [data-t]").forEach(x => x.classList.toggle("on", x === b)); ({ queue, labReview, plans, appointments, clinics, metrics, audit, pathwayBoard, vault: () => window.Vault && Vault.render($("#tab")) })[b.dataset.t](); });
   $("#open").onclick = async () => {
     try { const r = await API.post(`/api/clinician/share/${$("#code").value.trim()}`); await queue(); openCase(r.assessment_id); }
     catch (e) { alert(e.message); }

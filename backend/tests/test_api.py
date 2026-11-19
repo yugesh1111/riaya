@@ -188,6 +188,9 @@ def test_labs_genomic_rapid_handover(client):
     url = client.post(f"/api/clinician/cases/{aid}/video", headers=ch).json()["url"]
     assert url.startswith("https://meet.jit.si/riaya-")
     msgs = client.get(f"/api/assessments/{aid}/messages", headers=h).json()
+    notices = [m for m in msgs if m["body"].startswith("🔒")]
+    assert notices, "he is told when a doctor opens his record"
+    msgs = [m for m in msgs if not m["body"].startswith("🔒")]
     # approval message, the doctor's own message, then the video-room notice
     assert "approved your next step" in msgs[0]["body"] and msgs[1]["body"].startswith("Hello") and len(msgs) == 3
     client.post(f"/api/assessments/{aid}/messages", headers=h, json={"body": "Thank you"})

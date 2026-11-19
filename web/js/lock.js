@@ -16,7 +16,8 @@
           lockNow: "Lock now", change: "Change PIN", bioOn: "Face ID / fingerprint is on", bioOff: "Turn on Face ID / fingerprint",
           card: "App lock", cardSub: "Riaya locks every time you open it or come back from another app. Documents on this phone are encrypted.",
           bioT: "Unlock with Face ID or fingerprint?", bioSub: "Faster than your PIN, and your face or fingerprint never leaves this phone. Your PIN still works.",
-          bioYes: "Use Face ID / fingerprint", notNow: "Not now", bioDone: "All set", bioFail: "That didn't work. You can turn it on later in Privacy." },
+          bioYes: "Use Face ID / fingerprint", notNow: "Not now", bioDone: "All set", bioFail: "That didn't work. You can turn it on later in Privacy.",
+          verT: "Confirm it's you", verSub: "To open this document" },
     ar: { title: "رعاية مقفلة", sub: "أدخل رمزك", setT: "احمِ رعاية برمز سري", setSub: "يبقى ملخصك وتقاريرك ورسائلك مقفلة حتى تدخله. من ٤ إلى ٦ أرقام.",
           again: "أدخله مرة أخرى", wrong: "الرمز غير صحيح", mismatch: "الرمزان غير متطابقين. حاول مرة أخرى.", bio: "استخدم بصمة الوجه / الإصبع",
           bioSet: "افتح أيضاً ببصمة الوجه / الإصبع", forgot: "نسيت الرمز؟", forgotQ: "هل تريد مسح رعاية من هذا الهاتف؟ يمكنك استعادة سجلك لاحقاً برمز الاسترداد.",
@@ -24,10 +25,21 @@
           lockNow: "اقفل الآن", change: "غيّر الرمز", bioOn: "بصمة الوجه / الإصبع مفعّلة", bioOff: "فعّل بصمة الوجه / الإصبع",
           card: "قفل التطبيق", cardSub: "تُقفل رعاية في كل مرة تفتحها أو تعود إليها من تطبيق آخر. المستندات على هذا الهاتف مشفّرة.",
           bioT: "هل تفتح ببصمة الوجه أو الإصبع؟", bioSub: "أسرع من الرمز، وبصمتك لا تغادر هذا الهاتف أبداً. يبقى رمزك صالحاً.",
-          bioYes: "استخدم بصمة الوجه / الإصبع", notNow: "ليس الآن", bioDone: "تم", bioFail: "لم ينجح ذلك. يمكنك تفعيله لاحقاً من الخصوصية." },
+          bioYes: "استخدم بصمة الوجه / الإصبع", notNow: "ليس الآن", bioDone: "تم", bioFail: "لم ينجح ذلك. يمكنك تفعيله لاحقاً من الخصوصية.",
+          verT: "تأكيد هويتك", verSub: "لفتح هذا المستند" },
   };
   const L = () => ((typeof LANG !== "undefined" ? LANG : document.documentElement.lang) === "ar" ? "ar" : "en");
-  const x = k => T[L()][k];
+
+  /* Look and words follow the device: iPhone/iPad → Face ID and an iOS-style keypad; Mac → Touch ID; Android
+     (Samsung One UI and others) → fingerprint and a flat One UI keypad. "?skin=apple" or "?skin=android" in the URL
+     forces a look (for the demo video). */
+  const ua = navigator.userAgent;
+  const forced = (() => { try { const q = new URLSearchParams(location.search).get("skin"); if (q) sessionStorage.setItem("riaya_skin", q); return sessionStorage.getItem("riaya_skin"); } catch { return null; } })();
+  const DEVICE = forced === "android" ? "android" : forced === "apple" ? "ios"
+    : /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? "ios" : /Android/.test(ua) ? "android" : /Macintosh/.test(ua) ? "mac" : "other";
+  const SKIN = DEVICE === "android" ? "android" : DEVICE === "other" ? "neutral" : "apple";
+  const BIO_NAME = { ios: ["Face ID", "بصمة الوجه"], mac: ["Touch ID", "بصمة الإصبع"], android: ["fingerprint", "بصمة الإصبع"], other: ["Windows Hello", "Windows Hello"] }[DEVICE];
+  const x = k => String(T[L()][k]).replace(/Face ID (?:\/|or) fingerprint/g, BIO_NAME[0]).replace(/بصمة الوجه (?:\/|أو) الإصبع/g, BIO_NAME[1]);
   const scope = (document.currentScript && document.currentScript.dataset.scope) || "user";
   const KEY = scope === "doc" ? "riaya_lock_doc" : "riaya_lock";
   const UNLOCK_FLAG = KEY + "_open";   // sessionStorage: unlocked in this tab (survives reloads, not app restarts)
@@ -102,13 +114,20 @@
     <path d="M6 20V12a6 6 0 0 1 6-6h8M44 6h8a6 6 0 0 1 6 6v8M58 44v8a6 6 0 0 1-6 6h-8M20 58h-8a6 6 0 0 1-6-6v-8"/>
     <path d="M23 24v4M41 24v4M32 24v12h-3M24 43c4.5 4 11.5 4 16 0"/></svg>`;
 
+  const FP_ICON = `<svg viewBox="0 0 64 64" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">
+    <path d="M18 14a24 24 0 0 1 28 0M12 26a22 22 0 0 1 40 0M20 52c3-6 4-12 4-18a8 8 0 0 1 16 0c0 4-.5 8-1.5 12M32 34c0 8-2 15-6 21M44 38c0 6-1 11-3 16M14 42c2-2 3-5 3-8a15 15 0 0 1 30 0"/></svg>`;
+  const BIO_GLYPH = DEVICE === "ios" ? BIO_ICON : FP_ICON;
+
   // ---------- state
   const hasPin = () => !!read();
   const isOpen = () => ss.get(UNLOCK_FLAG) === "1";
   const touring = () => !!(root.Tour && root.Tour.state && root.Tour.state.on);
   const needsSetup = () => !touring() && (scope === "user" ? !hasPin() && !!(localStorage.getItem("token")) && localStorage.getItem("done") === "1"
                                                              : !hasPin() && !!ss.get("ctoken"));
-  function open() { ss.set(UNLOCK_FLAG, "1"); document.documentElement.classList.remove("locked"); sheet && sheet.remove(); sheet = null; root.dispatchEvent(new Event("riaya:unlocked")); }
+  let verifying = null;
+  function open() {
+    if (verifying) { const r = verifying; verifying = null; sheet && sheet.remove(); sheet = null; document.documentElement.classList.remove("locked"); return r(true); }
+    ss.set(UNLOCK_FLAG, "1"); document.documentElement.classList.remove("locked"); sheet && sheet.remove(); sheet = null; root.dispatchEvent(new Event("riaya:unlocked")); }
   function lock() { if (!hasPin()) return; ss.del(UNLOCK_FLAG); show(); }
 
   // ---------- the lock screen
@@ -140,25 +159,62 @@
     .lk .step { display: flex; flex-direction: column; align-items: center; gap: 10px; animation: lkin .35s cubic-bezier(.2,.8,.2,1); }
     @keyframes lkin { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
     .lk .pad .bio { color: #c9a86a; padding: 20px; }
+    .lk .pad button b { font-weight: inherit; } .lk .pad button small { display: block; }
+    /* Apple: iOS passcode screen feel */
+    .lk-apple { font-family: -apple-system, "SF Pro Text", "SF Arabic", system-ui, sans-serif; background: radial-gradient(140% 100% at 50% 0%, #2b4a5e 0%, #13263a 45%, #070d14 100%); }
+    .lk-apple h2 { font-weight: 400; font-size: 20px; letter-spacing: -.01em; } .lk-apple p { color: rgba(255,255,255,.7); }
+    .lk-apple img { width: 52px; height: 52px; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
+    .lk-apple .dots { gap: 18px; } .lk-apple .dots i { width: 13px; height: 13px; border: 1.3px solid #fff; } .lk-apple .dots i.on { background: #fff; }
+    .lk-apple .pad { grid-template-columns: repeat(3, 78px); gap: 16px 26px; margin-top: 18px; }
+    .lk-apple .pad button { width: 78px; height: 78px; border: 0; background: rgba(255,255,255,.16); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; transition: background .12s; }
+    .lk-apple .pad button b { font-size: 36px; font-weight: 300; line-height: 1; }
+    .lk-apple .pad button small { font-size: 10px; font-weight: 600; letter-spacing: .22em; opacity: .9; margin-inline-start: .22em; }
+    .lk-apple .pad button:active { background: rgba(255,255,255,.45); }
+    .lk-apple .pad .ghost { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; font-size: 17px; font-weight: 400; }
+    .lk-apple .pad .bio { color: #fff; padding: 22px; }
+    .lk-apple .lnk { color: #fff; font-size: 16px; }
+    .lk-apple .primary { background: #0a84ff; color: #fff; border-radius: 14px; font-weight: 600; }
+    .lk-apple .bioic { color: #fff; } .lk-apple .bioic.ok { color: #30d158; }
+    /* Android: Samsung One UI feel */
+    .lk-android { font-family: "SamsungOne", "Roboto", "Noto Sans Arabic", system-ui, sans-serif; background: #0b0f14; justify-content: flex-start; padding-top: 14vh; }
+    .lk-android img { width: 44px; height: 44px; border-radius: 50%; }
+    .lk-android h2 { font-size: 22px; font-weight: 500; } .lk-android p { color: #a7b0b8; }
+    .lk-android .dots { gap: 14px; margin-top: 18px; } .lk-android .dots i { width: 11px; height: 11px; border: 0; background: #3a4048; } .lk-android .dots i.on { background: #e8eaed; }
+    .lk-android .pad { margin-top: auto; grid-template-columns: repeat(3, minmax(88px, 1fr)); gap: 6px 10px; width: min(360px, 100%); padding-bottom: 6vh; }
+    .lk-android .pad button { width: 100%; height: 64px; border: 0; border-radius: 32px; background: transparent; }
+    .lk-android .pad button b { font-size: 30px; font-weight: 400; }
+    .lk-android .pad button:active { background: rgba(255,255,255,.12); }
+    .lk-android .pad .ghost { font-size: 22px; } .lk-android .pad .bio { color: #8ab4f8; padding: 14px 30px; }
+    .lk-android .lnk { color: #8ab4f8; }
+    .lk-android .primary { background: #8ab4f8; color: #0b0f14; border-radius: 24px; }
+    .lk-android .bioic { color: #8ab4f8; } .lk-android .bioic.ok { color: #81c995; }
+    .lk-android .lk-lang span.on, .lk-apple .lk-lang span.on { background: #fff; color: #000; }
     @media (prefers-reduced-motion: reduce) { .lk .dots.shake, .lk .step, .lk .bioic svg path { animation: none; stroke-dashoffset: 0; } }`;
   document.head.appendChild(css);
 
-  function show(setup) {
+  /* Asks for the PIN or Face ID again before something sensitive opens (a vault document). Resolves true or false. */
+  function verify() {
+    if (!hasPin()) return Promise.resolve(true);
+    return new Promise(res => { verifying = res; show(false, true); });
+  }
+
+  function show(setup, isVerify) {
     document.documentElement.classList.add("locked");
     sheet && sheet.remove();
     entry = ""; first = null;
     sheet = document.createElement("div");
-    sheet.className = "lk"; sheet.setAttribute("role", "dialog"); sheet.setAttribute("aria-modal", "true");
+    sheet.className = "lk lk-" + SKIN; sheet.setAttribute("role", "dialog"); sheet.setAttribute("aria-modal", "true");
     const s = read();
     const mode = setup ? "set" : "unlock";
     sheet.innerHTML = `<button type="button" class="lk-lang" id="lkLang" aria-label="${L() === "ar" ? "English" : "العربية"}"><span class="${L() === "ar" ? "on" : ""}">ع</span><span class="${L() === "ar" ? "" : "on"}">EN</span></button>
       <img src="icons/icon-192.png" alt="">
-      <h2 id="lkT">${esc(mode === "set" ? x("setT") : x("title"))}</h2><p id="lkS">${esc(mode === "set" ? x("setSub") : x("sub"))}</p>
+      <h2 id="lkT">${esc(mode === "set" ? x("setT") : isVerify ? x("verT") : x("title"))}</h2><p id="lkS">${esc(mode === "set" ? x("setSub") : isVerify ? x("verSub") : x("sub"))}</p>
       <div class="dots" id="lkD" aria-hidden="true">${"<i></i>".repeat(mode === "unlock" && s && s.len ? s.len : 6)}</div><div class="msg" id="lkM" role="status" aria-live="assertive"></div>
-      <div class="pad" role="group" aria-label="PIN">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<button type="button" data-k="${n}">${n}</button>`).join("")}
-        <button type="button" class="ghost bio" data-k="bio" aria-label="${esc(x("bio"))}" ${mode === "unlock" && s && s.bio ? "" : "style='visibility:hidden'"}>${BIO_ICON}</button>
-        <button type="button" data-k="0">0</button><button type="button" class="ghost" data-k="back" aria-label="${esc(x("del"))}">⌫</button></div>
-      ${mode === "set" ? `<button type="button" class="lnk" id="lkOk" hidden>OK</button>` : `<button type="button" class="lnk" id="lkForgot">${esc(x("forgot"))}</button>`}`;
+      <div class="pad" role="group" aria-label="PIN">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<button type="button" data-k="${n}" aria-label="${n}"><b>${n}</b>${SKIN === "apple" ? `<small>${["", "ABC", "DEF", "GHI", "JKL", "MNO", "PQRS", "TUV", "WXYZ"][n - 1]}</small>` : ""}</button>`).join("")}
+        <button type="button" class="ghost bio" data-k="bio" aria-label="${esc(x("bio"))}" ${mode === "unlock" && s && s.bio ? "" : "style='visibility:hidden'"}>${BIO_GLYPH}</button>
+        <button type="button" data-k="0" aria-label="0"><b>0</b>${SKIN === "apple" ? "<small>&nbsp;</small>" : ""}</button><button type="button" class="ghost back" data-k="back" aria-label="${esc(x("del"))}">${SKIN === "apple" ? esc(x("del")) : "⌫"}</button></div>
+      ${mode === "set" ? `<button type="button" class="lnk" id="lkOk" hidden>OK</button>` : isVerify ? `<button type="button" class="lnk" id="lkCancel">${esc(x("cancel"))}</button>` : `<button type="button" class="lnk" id="lkForgot">${esc(x("forgot"))}</button>`}`;
     document.body.appendChild(sheet);
     sheet.querySelector("#lkLang").onclick = () => {
       const next = L() === "ar" ? "en" : "ar";
@@ -166,7 +222,7 @@
       if (typeof LANG !== "undefined") { try { LANG = next; } catch {} }
       document.documentElement.lang = next; document.documentElement.dir = next === "ar" ? "rtl" : "ltr";
       if (mode === "set" && first) { location.reload(); return; }
-      show(setup);
+      show(setup, isVerify);
     };
     const dots = sheet.querySelector("#lkD"), msg = sheet.querySelector("#lkM");
     const paint = () => [...dots.children].forEach((d, i) => d.classList.toggle("on", i < entry.length));
@@ -188,7 +244,7 @@
     };
     // second step after the PIN: offer Face ID / fingerprint as its own clear choice
     const bioStep = () => {
-      sheet.innerHTML = `<div class="step"><div class="bioic" id="lkBi">${BIO_ICON}</div>
+      sheet.innerHTML = `<div class="step"><div class="bioic" id="lkBi">${BIO_GLYPH}</div>
         <h2>${esc(x("bioT"))}</h2><p>${esc(x("bioSub"))}</p>
         <button type="button" class="primary" id="lkYes">${esc(x("bioYes"))}</button>
         <button type="button" class="lnk" id="lkNo">${esc(x("notNow"))}</button><div class="msg" id="lkM2" role="status" aria-live="polite"></div></div>`;
@@ -216,6 +272,8 @@
     sheet.querySelectorAll("[data-k]").forEach(b => b.onclick = () => press(b.dataset.k));
     if (mode === "set") sheet.querySelector("#lkOk").onclick = submit;
     sheet.addEventListener("keydown", e => { if (/^\d$/.test(e.key)) press(e.key); else if (e.key === "Backspace") press("back"); else if (e.key === "Enter") submit(); });
+    const cancel = sheet.querySelector("#lkCancel");
+    if (cancel) cancel.onclick = () => { const r = verifying; verifying = null; sheet.remove(); sheet = null; document.documentElement.classList.remove("locked"); r && r(false); };
     const forgot = sheet.querySelector("#lkForgot");
     if (forgot) forgot.onclick = async () => {
       if (!confirm(x("forgotQ"))) return;
@@ -259,5 +317,5 @@
     });
   }
 
-  root.Lock = { guard, lock, open, isOpen, hasPin, checkPin, encryptBlob, decryptBlob, settingsCard, wireCard, show, UNLOCK_FLAG, scope };
+  root.Lock = { verify, BIO_NAME, guard, lock, open, isOpen, hasPin, checkPin, encryptBlob, decryptBlob, settingsCard, wireCard, show, UNLOCK_FLAG, scope };
 })(window);
