@@ -149,3 +149,17 @@ def test_patient_is_told_when_a_doctor_opens_his_record(client, doc):
     msgs = r["messages"] if isinstance(r, dict) else r
     notes = [m for m in msgs if "🔒" in (m.get("body") or "")]
     assert len(notes) == 1 and "doctor" in notes[0]["body"].lower()
+
+
+def test_tester_feedback_and_sus(client, doc):
+    from app.main import sus_score
+    assert sus_score([5, 1, 5, 1, 5, 1, 5, 1, 5, 1]) == 100 and sus_score([3] * 10) == 50
+    body = {"device": "iphone", "lang": "ar", "tried": ["voice", "vault", "nope"], "sus": [4, 2, 5, 1, 4, 2, 5, 1, 4, 2],
+            "clear": 5, "private_felt": 5, "voice_ok": 4, "would_use": 4, "recommend": True, "comment": "Very private, voice was good"}
+    r = client.post("/api/tester-feedback", json=body).json()
+    assert r["sus"] == 85.0
+    assert client.post("/api/tester-feedback", json={**body, "sus": [6] * 10}).status_code == 422
+    pub = client.get("/api/tester-feedback/summary").json()
+    assert pub["n"] >= 1 and "comments" not in pub and pub["tried"].get("vault") and "nope" not in pub["tried"]
+    team = client.get("/api/clinician/tester-feedback", headers=doc).json()
+    assert team["comments"][0]["text"].startswith("Very private")

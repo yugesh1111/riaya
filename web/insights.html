@@ -90,6 +90,7 @@ function line(points) {
 
 async function load() {
   const d = await API.get(`/api/insights?include_simulated=${$("#sim") ? $("#sim").checked : false}`);
+  const tf = await API.get("/api/clinician/tester-feedback").catch(() => null);
   const t = d.tiles;
   const faster = t.median_days_to_evaluation ? Math.round(t.usual_pathway_days / t.median_days_to_evaluation) : null;
   $("#view").innerHTML = `
@@ -135,6 +136,16 @@ async function load() {
           ${d.clinic_quality.map(q => q.suppressed ? `<tr><td>${esc(q.clinic)}</td><td colspan="6" class="supp">Fewer than ${d.k_anonymity} ratings: hidden to protect privacy</td></tr>`
             : `<tr><td>${esc(q.clinic)}</td><td>${q.n}</td><td>${q.respect}</td><td>${q.privacy}</td><td>${q.explained}</td><td>${q.recommend_pct}%</td><td>${q.avg_wait_days ?? "—"}</td></tr>`).join("")}</table>`
           : `<p class="note">No ratings yet.</p>`}</div>
+      <div class="panel wide"><h2>Usability testing (real testers)</h2><p class="sub">Anonymous feedback from people who tried Riaya, collected at <a href="tester.html">/tester.html</a>.
+        System Usability Scale (SUS, 0–100): 68 is the published average, 80+ is the top 10%.</p>
+        ${!tf || !tf.n ? `<p class="note">No tester feedback yet. Share the link /tester.html with people after they try Riaya.</p>` : `<div class="grid">
+          <div class="panel" style="border:0;padding:0"><table><tr><th>Testers</th><td>${tf.n}</td></tr><tr><th>SUS (mean)</th><td><b>${tf.sus_mean}</b> · ${esc(tf.grade)}</td></tr>
+            <tr><th>Summary was clear (1–5)</th><td>${tf.clear ?? "—"}</td></tr><tr><th>Felt private (1–5)</th><td>${tf.private_felt ?? "—"}</td></tr>
+            <tr><th>Voice understood them (1–5)</th><td>${tf.voice_ok ?? "—"}</td></tr><tr><th>Would use it (1–5)</th><td>${tf.would_use ?? "—"}</td></tr>
+            <tr><th>Would recommend</th><td>${tf.recommend_pct}%</td></tr>
+            <tr><th>Devices</th><td>${Object.entries(tf.devices).map(([k, v]) => `${esc(k)} ${v}`).join(", ")}</td></tr>
+            <tr><th>Parts tried</th><td>${Object.entries(tf.tried).map(([k, v]) => `${esc(k)} ${v}`).join(", ") || "—"}</td></tr></table></div>
+          <div class="panel" style="border:0;padding:0"><h3 style="margin-top:0">What they said</h3>${(tf.comments || []).slice(0, 12).map(c => `<p class="note">“${esc(c.text)}” <span class="muted">(${esc(c.device)})</span></p>`).join("") || `<p class="note">No comments yet.</p>`}</div></div>`}</div>
       <div class="panel wide"><h2>Outcomes at 30 days and beyond</h2><p class="sub">12-week companion. Engagement = still checking in at that week.
         Wellbeing = WHO-5 (0–100) at the start and at day 30 or 84; a change of 10 points or more is clinically meaningful (Topp 2015). Fewer than ${d.k_anonymity} men: hidden.</p>
         ${!d.outcomes || d.outcomes.suppressed ? `<p class="note">Not enough plans yet to show without risking identification.</p>` : `<div class="grid">

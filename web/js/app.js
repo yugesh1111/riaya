@@ -131,7 +131,7 @@ function welcome() {
       ${[1, 2, 3].map(i => `<div><span class="n">${LANG === "ar" ? "٠" + "١٢٣"[i - 1] : "0" + i}</span><b>${t("how" + i + "t")}</b><p>${t("how" + i)}</p></div>`).join("")}
     </div>
     <footer class="foot"><span>© Riaya · ${LANG === "ar" ? "رعاية" : "رعاية"}</span>
-      <a href="whatsapp.html">${LANG === "ar" ? "رعاية على واتساب" : "Riaya on WhatsApp"}</a><a href="graph.html">${t("graphLink")}</a><a href="fabric.html">${t("fabricLink")}</a>
+      <a href="tester.html">${LANG === "ar" ? "جرّبت رعاية؟ أخبرنا" : "Tried Riaya? Tell us"}</a>      <a href="whatsapp.html">${LANG === "ar" ? "رعاية على واتساب" : "Riaya on WhatsApp"}</a><a href="graph.html">${t("graphLink")}</a><a href="fabric.html">${t("fabricLink")}</a>
       <span class="spacer"></span>${API.token ? "" : `<a href="#" id="restoreLink">${pv("restoreLink")}</a>`}<a href="clinic.html">${LANG === "ar" ? "للعيادات" : "For clinics"}</a>
       <a href="clinician.html">${LANG === "ar" ? "بوابة الأطباء" : "Clinician console"}</a></footer>`;
   $("#go").onclick = () => { document.body.classList.remove("landing"); resumable ? intake() : consent(); };

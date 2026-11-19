@@ -36,6 +36,9 @@ CREATE TABLE IF NOT EXISTS messages (
   id TEXT PRIMARY KEY, assessment_id TEXT NOT NULL, sender TEXT NOT NULL, body BLOB NOT NULL, ts REAL NOT NULL, read_at REAL);
 CREATE TABLE IF NOT EXISTS partner_links (
   token_hash TEXT PRIMARY KEY, assessment_id TEXT NOT NULL, created_at REAL NOT NULL, expires_at REAL NOT NULL, revoked INTEGER DEFAULT 0, views INTEGER DEFAULT 0);
+CREATE TABLE IF NOT EXISTS tester_feedback (
+  id TEXT PRIMARY KEY, ts REAL NOT NULL, device TEXT, lang TEXT, tried TEXT, sus TEXT NOT NULL, sus_score REAL NOT NULL,
+  clear INTEGER, private_felt INTEGER, voice_ok INTEGER, would_use INTEGER, recommend INTEGER, comment BLOB);
 CREATE TABLE IF NOT EXISTS feedback (
   assessment_id TEXT PRIMARY KEY, trust INTEGER, clarity INTEGER, comfort INTEGER, ts REAL);
 CREATE TABLE IF NOT EXISTS lab_results (

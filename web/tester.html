@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Riaya · Tester feedback</title>
+<meta name="theme-color" content="#0f2a3a">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/app.css?v=2">
+<link rel="stylesheet" href="css/premium.css?v=8">
+<style>
+  .tf { max-width: 680px; margin: 0 auto; padding: 18px 16px 60px; }
+  .tf h1 { margin: 6px 0 4px; } .tf .q { margin: 18px 0 8px; font-weight: 600; }
+  .scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; direction: ltr; }
+  .scale .opt { text-align: center; padding: 10px 0; }
+  .ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 4px; direction: ltr; }
+  .sus .q { font-weight: 500; }
+  .done { text-align: center; padding: 40px 10px; }
+  .done b { display: block; font-size: 48px; margin: 10px 0; }
+  .prog { position: sticky; top: 0; height: 3px; background: var(--line); z-index: 5; } .prog i { display: block; height: 100%; width: 0; background: var(--brand); transition: width .3s; }
+</style>
+</head>
+<body>
+<div class="prog"><i id="bar"></i></div>
+<header class="top"><a class="brand" href="index.html"><i></i><span>Riaya</span></a><div class="spacer"></div><button class="chip" id="langBtn"></button></header>
+<main class="tf" id="view"></main>
+<script src="js/common.js?v=3"></script>
+<script src="js/i18n.js?v=2"></script>
+<script>
+/* Tester feedback: 2 minutes, anonymous. The System Usability Scale (Brooke 1996; Arabic wording follows the
+   validated Arabic SUS) plus five questions about Riaya. No name, email or phone is asked. */
+const TX = {
+  en: { title: "You tried Riaya. How was it?", sub: "Two minutes, anonymous. No name, email or phone. Thank you for helping.",
+        device: "What did you use?", devices: { iphone: "iPhone", android: "Android", mac: "Mac", windows: "Windows PC", other: "Other" },
+        lang: "Which language did you use?", tried: "What did you try? (tick all)",
+        parts: { voice: "Voice check", form: "Typed check", watch: "Watch first", labs: "Lab report scan", plan: "12-week plan", vault: "Vault", lock: "PIN / Face ID lock",
+                 calculator: "Calculator disguise", booking: "Booking a clinic", privacy: "Privacy settings", doctor: "Doctor console" },
+        susT: "About using it", agree: ["Strongly disagree", "Strongly agree"],
+        sus: ["I think I would like to use Riaya often.", "I found Riaya unnecessarily complex.", "I thought Riaya was easy to use.",
+              "I think I would need help from a technical person to use Riaya.", "I found the various parts of Riaya well put together.",
+              "I thought there was too much inconsistency in Riaya.", "I imagine most people would learn to use Riaya very quickly.",
+              "I found Riaya very awkward to use.", "I felt very confident using Riaya.", "I needed to learn a lot of things before I could get going with Riaya."],
+        riayaT: "About Riaya", clear: "The summary and next steps were clear.", priv: "I felt my information was private.",
+        voice: "The voice understood me. (skip if you didn't use voice)", use: "I would use Riaya for myself.", rec: "Would you recommend it to a friend?",
+        yes: "Yes", no: "No", comment: "Anything to improve? (optional; please don't write personal health details)", send: "Send", need: "Please answer the questions marked above.",
+        thanks: "Thank you!", score: "Your usability score", bench: "The average app scores 68.", again: "Back to Riaya", already: "You already sent feedback from this phone. Thank you!" },
+  ar: { title: "جرّبت رعاية. كيف كانت؟", sub: "دقيقتان، دون ذكر هويتك. لا اسم ولا بريد ولا رقم. شكراً لمساعدتك.",
+        device: "ماذا استخدمت؟", devices: { iphone: "آيفون", android: "أندرويد", mac: "ماك", windows: "حاسوب ويندوز", other: "غير ذلك" },
+        lang: "بأي لغة استخدمتها؟", tried: "ماذا جرّبت؟ (اختر كل ما ينطبق)",
+        parts: { voice: "الفحص بالصوت", form: "الفحص بالكتابة", watch: "الساعة أولاً", labs: "مسح تقرير المختبر", plan: "خطة ١٢ أسبوعاً", vault: "الخزنة", lock: "القفل بالرمز / بصمة الوجه",
+                 calculator: "إخفاء كآلة حاسبة", booking: "حجز عيادة", privacy: "إعدادات الخصوصية", doctor: "بوابة الطبيب" },
+        susT: "عن الاستخدام", agree: ["لا أوافق بشدة", "أوافق بشدة"],
+        sus: ["أعتقد أنني سأرغب في استخدام رعاية كثيراً.", "وجدت رعاية معقّدة بلا داعٍ.", "وجدت رعاية سهلة الاستخدام.",
+              "أعتقد أنني سأحتاج إلى مساعدة شخص تقني لاستخدام رعاية.", "وجدت أجزاء رعاية المختلفة متكاملة بشكل جيد.",
+              "وجدت تناقضاً كبيراً في رعاية.", "أتخيل أن معظم الناس سيتعلمون استخدام رعاية بسرعة كبيرة.",
+              "وجدت رعاية مربكة جداً في الاستخدام.", "شعرت بثقة كبيرة أثناء استخدام رعاية.", "احتجت إلى تعلّم أشياء كثيرة قبل أن أبدأ باستخدام رعاية."],
+        riayaT: "عن رعاية", clear: "كان الملخص والخطوات التالية واضحة.", priv: "شعرت أن معلوماتي خاصة.",
+        voice: "فهمني الصوت. (تخطَّ إن لم تستخدم الصوت)", use: "سأستخدم رعاية لنفسي.", rec: "هل توصي بها لصديق؟",
+        yes: "نعم", no: "لا", comment: "ما الذي يمكن تحسينه؟ (اختياري؛ من فضلك لا تكتب تفاصيل صحية شخصية)", send: "إرسال", need: "من فضلك أجب عن الأسئلة المحددة أعلاه.",
+        thanks: "شكراً لك!", score: "درجة سهولة الاستخدام لديك", bench: "متوسط التطبيقات ٦٨.", again: "العودة إلى رعاية", already: "أرسلت ملاحظاتك من هذا الهاتف سابقاً. شكراً لك!" },
+};
+const A = {};
+const x = k => TX[LANG][k];
+function scale(name, endsKey = "agree") {
+  return `<div class="scale" role="radiogroup" data-n="${name}">${[1, 2, 3, 4, 5].map(v => `<span class="opt" role="radio" aria-checked="false" data-v="${v}">${v}</span>`).join("")}</div>
+    <div class="ends"><span>${esc(x(endsKey)[0])}</span><span>${esc(x(endsKey)[1])}</span></div>`;
+}
+function render() {
+  applyLang();
+  $("#langBtn").textContent = t("lang");
+  if (store.get("tester_sent")) { $("#view").innerHTML = `<div class="done"><p>${esc(x("already"))}</p><p><a class="btn" href="index.html">${esc(x("again"))}</a></p></div>`; return; }
+  $("#view").innerHTML = `<h1>${esc(x("title"))}</h1><p class="lead">${esc(x("sub"))}</p>
+    <p class="q">${esc(x("device"))}</p><div class="opts" data-one="device">${Object.entries(x("devices")).map(([k, v]) => `<span class="opt" data-v="${k}">${esc(v)}</span>`).join("")}</div>
+    <p class="q">${esc(x("lang"))}</p><div class="opts" data-one="lang"><span class="opt" data-v="ar">العربية</span><span class="opt" data-v="en">English</span></div>
+    <p class="q">${esc(x("tried"))}</p><div class="opts" data-many="tried">${Object.entries(x("parts")).map(([k, v]) => `<span class="opt" data-v="${k}">${esc(v)}</span>`).join("")}</div>
+    <h2 style="margin-top:28px">${esc(x("susT"))}</h2><div class="sus">${x("sus").map((q, i) => `<p class="q">${i + 1}. ${esc(q)}</p>${scale("sus" + i)}`).join("")}</div>
+    <h2 style="margin-top:28px">${esc(x("riayaT"))}</h2>
+    <p class="q">${esc(x("clear"))}</p>${scale("clear")}<p class="q">${esc(x("priv"))}</p>${scale("private_felt")}
+    <p class="q">${esc(x("voice"))}</p>${scale("voice_ok")}<p class="q">${esc(x("use"))}</p>${scale("would_use")}
+    <p class="q">${esc(x("rec"))}</p><div class="opts" data-one="recommend"><span class="opt" data-v="1">${esc(x("yes"))}</span><span class="opt" data-v="0">${esc(x("no"))}</span></div>
+    <p class="q">${esc(x("comment"))}</p><textarea id="cm" rows="3" maxlength="1000"></textarea>
+    <p class="row" style="margin-top:18px"><button class="btn" id="send">${esc(x("send"))}</button><span class="small" id="msg" role="status"></span></p>`;
+  const prog = () => { const need = 15; const have = ["device", "lang", "recommend"].filter(k => A[k] != null).length + [...Array(10).keys()].filter(i => A["sus" + i]).length + ["clear", "private_felt", "would_use"].filter(k => A[k]).length;
+    $("#bar").style.width = `${Math.min(100, Math.round(100 * have / (need + 1)))}%`; };
+  $$("[data-n]").forEach(g => g.querySelectorAll(".opt").forEach(o => o.onclick = () => {
+    g.querySelectorAll(".opt").forEach(e => { e.classList.toggle("on", e === o); e.setAttribute("aria-checked", e === o); }); A[g.dataset.n] = +o.dataset.v; prog(); }));
+  $$("[data-one]").forEach(g => g.querySelectorAll(".opt").forEach(o => o.onclick = () => {
+    g.querySelectorAll(".opt").forEach(e => e.classList.toggle("on", e === o)); A[g.dataset.one] = o.dataset.v; prog(); }));
+  $$("[data-many]").forEach(g => g.querySelectorAll(".opt").forEach(o => o.onclick = () => o.classList.toggle("on")));
+  $("#send").onclick = async () => {
+    const sus = [...Array(10).keys()].map(i => A["sus" + i]);
+    if (!A.device || !A.lang || A.recommend == null || sus.some(v => !v) || !A.clear || !A.private_felt || !A.would_use) { $("#msg").textContent = x("need"); return; }
+    try {
+      const r = await API.post("/api/tester-feedback", { device: A.device, lang: A.lang, tried: $$("[data-many] .opt.on").map(o => o.dataset.v), sus,
+        clear: A.clear, private_felt: A.private_felt, voice_ok: A.voice_ok || null, would_use: A.would_use, recommend: A.recommend === "1", comment: $("#cm").value.trim() || null });
+      store.set("tester_sent", "1"); $("#bar").style.width = "100%";
+      $("#view").innerHTML = `<div class="done"><h1>${esc(x("thanks"))}</h1><p>${esc(x("score"))}</p><b>${Math.round(r.sus)}</b><p class="muted">${esc(x("bench"))}</p>
+        <p><a class="btn" href="index.html">${esc(x("again"))}</a></p></div>`;
+      window.scrollTo(0, 0);
+    } catch (e) { $("#msg").textContent = e.message; }
+  };
+}
+$("#langBtn").onclick = () => { LANG = LANG === "ar" ? "en" : "ar"; store.set("lang", LANG); render(); };
+render();
+</script>
+</body>
+</html>

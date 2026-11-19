@@ -38,6 +38,7 @@ Riaya works in any browser and installs on **iPhone, Android and Mac**: as a web
 | U7 | Guided tour and voice demo | A 2-minute tour of a sample check; `chat.html?demo=en` / `?demo=ar` plays a recorded man's answers, recognised on the phone | ✅ |
 | U8 | Accessibility | Automated WCAG 2.2 AA audit with no violations, keyboard and screen-reader support, reduced motion, bigger text | ✅ |
 | U9 | Doctors use the same app | "I'm a doctor" on the start screen opens the clinician console, which has its own lock | ✅ |
+| U11 | Tester feedback | `/tester.html`: 2 minutes, anonymous, Arabic or English. Uses the System Usability Scale (SUS) plus Riaya questions (clear, private, voice, would use, recommend). Results appear on the programme dashboard | ✅ |
 | U10 | WhatsApp check | The same check over WhatsApp | 🟡 needs a Twilio number |
 
 ### 🧠 Explainable, predictive and prescriptive intelligence

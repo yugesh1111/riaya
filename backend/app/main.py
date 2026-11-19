@@ -2648,6 +2648,93 @@ def get_visit_feedback(aid: str, user=Depends(current_user)):
     return {"given": dict(r) if r else None, "can_rate": can}
 
 
+# ------------------------------------------------------------------ usability testing with real testers
+# The System Usability Scale (Brooke 1996): 10 items, 1-5. Odd items score (x-1), even items (5-x); the sum x 2.5 gives 0-100.
+# 68 is the published average; 80+ is in the top 10% of products (Sauro & Lewis).
+TESTER_DEVICES = {"iphone", "android", "mac", "windows", "other"}
+TESTER_PARTS = {"voice", "form", "watch", "labs", "plan", "vault", "lock", "calculator", "booking", "privacy", "doctor"}
+_tester_hits = {}
+
+
+class TesterIn(BaseModel):
+    device: str = Field(pattern="^(iphone|android|mac|windows|other)$")
+    lang: str = Field(pattern="^(ar|en)$")
+    tried: list[str] = Field(default_factory=list, max_length=11)
+    sus: list[int] = Field(min_length=10, max_length=10)
+    clear: int = Field(ge=1, le=5)
+    private_felt: int = Field(ge=1, le=5)
+    voice_ok: Optional[int] = Field(None, ge=1, le=5)
+    would_use: int = Field(ge=1, le=5)
+    recommend: bool
+    comment: Optional[str] = Field(None, max_length=1000)
+
+
+def sus_score(items):
+    if any(not 1 <= v <= 5 for v in items):
+        raise ValueError("SUS answers must be 1 to 5")
+    return sum((v - 1) if i % 2 == 0 else (5 - v) for i, v in enumerate(items)) * 2.5
+
+
+@app.post("/api/tester-feedback")
+def tester_feedback(body: TesterIn, request: Request):
+    """Anonymous feedback from people who tried Riaya. No name, email or phone; the comment is encrypted at rest."""
+    ip = request.client.host if request.client else "?"
+    now = time.time()
+    _tester_hits[ip] = [t for t in _tester_hits.get(ip, []) if now - t < 3600]
+    if len(_tester_hits[ip]) >= 10:
+        raise HTTPException(429, "Too many responses from this connection. Try again later.")
+    try:
+        score = sus_score(body.sus)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    tried = [t for t in body.tried if t in TESTER_PARTS]
+    with db.tx() as c:
+        c.execute("INSERT INTO tester_feedback VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                  (str(uuid.uuid4()), now, body.device, body.lang, json.dumps(tried), json.dumps(body.sus), score, body.clear, body.private_felt,
+                   body.voice_ok, body.would_use, int(body.recommend), security.seal(body.comment) if body.comment else None))
+    _tester_hits[ip].append(now)
+    return {"ok": True, "sus": score}
+
+
+def _tester_summary(c, with_comments):
+    rows = c.execute("SELECT * FROM tester_feedback ORDER BY ts").fetchall()
+    n = len(rows)
+    avg = lambda k: round(statistics.mean([r[k] for r in rows if r[k] is not None]), 2) if any(r[k] is not None for r in rows) else None
+    parts, devices = {}, {}
+    for r in rows:
+        devices[r["device"]] = devices.get(r["device"], 0) + 1
+        for t in json.loads(r["tried"] or "[]"):
+            parts[t] = parts.get(t, 0) + 1
+    scores = [r["sus_score"] for r in rows]
+    out = {"n": n, "sus_mean": round(statistics.mean(scores), 1) if scores else None,
+           "sus_median": round(statistics.median(scores), 1) if scores else None,
+           "sus_benchmark": 68, "grade": None, "clear": avg("clear"), "private_felt": avg("private_felt"), "voice_ok": avg("voice_ok"),
+           "would_use": avg("would_use"), "recommend_pct": round(100 * sum(r["recommend"] for r in rows) / n) if n else None,
+           "devices": devices, "tried": dict(sorted(parts.items(), key=lambda kv: -kv[1])), "first": rows[0]["ts"] if rows else None,
+           "last": rows[-1]["ts"] if rows else None}
+    if scores:
+        m = out["sus_mean"]
+        out["grade"] = "A (excellent)" if m >= 80.3 else "B (good)" if m >= 74 else "C (OK, about average)" if m >= 68 else "D (below average)" if m >= 51 else "F (poor)"
+    if with_comments:
+        out["comments"] = [{"ts": r["ts"], "device": r["device"], "text": security.unseal(r["comment"])} for r in reversed(rows) if r["comment"]][:100]
+    return out
+
+
+@app.get("/api/tester-feedback/summary")
+def tester_summary_public():
+    """Aggregates only, so the team can show how many people tested Riaya and what they thought."""
+    with db.tx() as c:
+        return _tester_summary(c, False)
+
+
+@app.get("/api/clinician/tester-feedback")
+def tester_summary_team(clin=Depends(current_clinician)):
+    with db.tx() as c:
+        out = _tester_summary(c, True)
+    db.audit(clin, "view_tester_feedback")
+    return out
+
+
 # ------------------------------------------------------------------ Android apps: lets Riaya.apk and Calculator.apk open full screen
 # The fingerprint is the SHA-256 of the signing certificate in android/signing (override with RIAYA_APK_SHA256).
 APK_SHA256 = os.environ.get("RIAYA_APK_SHA256", "20:68:DA:BE:5C:0A:81:F7:FA:AC:9E:34:08:31:66:43:84:46:D4:09:28:CD:43:41:64:85:A2:85:2E:CA:20:4B")
