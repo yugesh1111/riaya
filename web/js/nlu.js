@@ -90,18 +90,39 @@
     return null;
   }
 
-  /* options: [{value, keys: ["word", ...]}] — returns the option whose key appears; earliest/longest match wins */
+  // edit distance, for words the speech service slightly misheard ("dayly", "tite", "يوميه")
+  function lev(a, b) {
+    if (Math.abs(a.length - b.length) > 2) return 9;
+    const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+    for (let j = 1; j <= b.length; j++) d[0][j] = j;
+    for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    return d[a.length][b.length];
+  }
+  const close = (word, key) => key.length >= 4 && !/\s/.test(key) && word.length >= 3 && lev(word, key) <= (key.length >= 7 ? 2 : 1);
+
+  /* options: [{value, keys: ["word", ...]}] — returns the option whose key appears; earliest/longest match wins.
+     If nothing matches exactly, a word within one or two letters of a key counts (NLU.lastFuzzy tells the page). */
   function choice(text, options) {
     const t = norm(text);
+    root.NLU.lastFuzzy = false;
     if (has(t, SKIP)) return "skip";
     let best = null, bestLen = 0;
     for (const o of options) for (const k of o.keys) {
       const nk = norm(k);
       if (nk && t.includes(nk) && nk.length > bestLen) { best = o.value; bestLen = nk.length; }
     }
-    return best;
+    if (best != null) return best;
+    const words = t.split(" ");
+    let fz = null, fzScore = 9;
+    for (const o of options) for (const k of o.keys) {
+      const nk = norm(k);
+      for (const w of words) if (close(w, nk)) { const sc = lev(w, nk); if (sc < fzScore) { fz = o.value; fzScore = sc; } }
+    }
+    if (fz != null) root.NLU.lastFuzzy = true;
+    return fz;
   }
 
-  root.NLU = { norm, number, months, yesNo, choice };
+  root.NLU = { norm, number, months, yesNo, choice, lev, lastFuzzy: false };
   if (typeof module !== "undefined") module.exports = root.NLU;
 })(typeof window !== "undefined" ? window : globalThis);

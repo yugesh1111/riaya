@@ -164,6 +164,7 @@ async function ask() {
 }
 
 function interpret(q, text) {
+  if (window.NLU) NLU.lastFuzzy = false;
   if (q.type === "number") {
     if (NLU.yesNo(text, false) === "skip") return "skip";
     const n = q.months ? NLU.months(text) : NLU.number(text);
@@ -190,9 +191,41 @@ function onText(text, spoken) {
   answer(v, text);
 }
 
+/* What Riaya understood, shown under his words, so a misheard answer is easy to spot and undo. */
+function understood(q, v) {
+  if (v === "skip") return L === "ar" ? "تخطٍّ" : "skipped";
+  if (q.opts) {
+    const vals = Array.isArray(v) ? v : [v];
+    const labels = vals.map(x => (q.opts.find(o => o.value === x) || {})[L]).filter(Boolean);
+    if (labels.length) return labels.join(L === "ar" ? "، " : ", ");
+  }
+  if (q.type === "number") return q.months ? (L === "ar" ? `${v} شهراً` : `${v} months`) : String(v);
+  return null;
+}
+
+let lastAnswer = null;
+async function undo() {
+  if (!lastAnswer || S.finished) return;
+  const { step, answers } = lastAnswer;
+  lastAnswer = null; $("#undo").hidden = true;
+  S.answers = answers; S.step = step;
+  if (S.aid) { const clean = { ...S.answers }; delete clean.rf_any; API.put(`/api/assessments/${S.aid}/answers`, { answers: clean }).catch(() => {}); }
+  Voice.stopSpeaking();
+  await botSay(L === "ar" ? "لا بأس، لنُعد هذا السؤال." : "No problem, let's redo that one.");
+  ask();
+}
+
 async function answer(v, shown) {
   const q = current();
-  bubble(shown, "me");
+  const me = bubble(shown, "me");
+  const u = understood(q, v);
+  if (u && String(u).trim() !== String(shown).trim()) {
+    const tag = document.createElement("small");
+    tag.className = "und"; tag.textContent = `✓ ${u}${window.NLU && NLU.lastFuzzy ? (L === "ar" ? " (تقريباً)" : " (best guess)") : ""}`;
+    me.appendChild(tag);
+  }
+  if (window.NLU) NLU.lastFuzzy = false;
+  if (!q.id.startsWith("consent")) { lastAnswer = { step: S.step, answers: JSON.parse(JSON.stringify(S.answers)) }; $("#undo").hidden = false; }
   $("#chips").innerHTML = "";
   if (q.id === "consent_core") {
     if (v !== "yes") { bubble(L === "ar" ? "لا بأس. يمكنك العودة في أي وقت." : "No problem. You can come back any time.", "bot"); return; }
@@ -217,6 +250,7 @@ async function answer(v, shown) {
 
 async function finish() {
   S.finished = true;
+  $("#undo").hidden = true;
   $("#chips").innerHTML = "";
   $("#prog").style.width = "100%"; $("#progLabel").textContent = "";
   await botSay(CT("working"));
@@ -316,12 +350,14 @@ function chrome() {
   $("#brand").textContent = t("app"); $("#langBtn").textContent = t("lang");
   $("#lblVoice").textContent = CT("voice"); $("#send").textContent = CT("send"); $("#text").placeholder = CT("typeHere");
   $("#lblHands").textContent = CT("handsFree"); $("#lblPrivate").textContent = CT("private");
+  $("#undo").textContent = L === "ar" ? "↶ تراجع" : "↶ Undo";
   loadVoices(); setupMic();
 }
 
 $("#langBtn").onclick = () => { L = LANG = L === "ar" ? "en" : "ar"; store.set("lang", L); chrome(); log().innerHTML = ""; S = { answers: {}, step: 0, aid: null, multi: [] };
   if (S.started) ask(); else startPad(); };
 $("#voice").onchange = e => store.set("voice_" + L, e.target.value);
+$("#undo").onclick = undo;
 $("#send").onclick = () => { onText($("#text").value); $("#text").value = ""; };
 $("#text").onkeydown = e => { if (e.key === "Enter") { onText(e.target.value); e.target.value = ""; } };
 if (window.speechSynthesis) speechSynthesis.onvoiceschanged = loadVoices;
