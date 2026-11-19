@@ -76,6 +76,10 @@ Every line was checked against the app's own language understanding. Five answer
 
 ---
 
+## How to describe testing in the video
+
+Say what is true: **"We tested Riaya end to end ourselves, in Arabic and English, by voice and by typing."** All the parts are measured: 75 automated tests, scenario checks, an accessibility audit and a full voice run with 19 of 19 answers recognised. Don't call it a beta test with outside users unless outside users have actually tried it.
+
 ## Running order (about 4 minutes)
 
 | Time | Scene | On screen | Smart-art / caption |
