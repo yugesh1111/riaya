@@ -14,13 +14,17 @@
           bioSet: "Also unlock with Face ID / fingerprint", forgot: "Forgot PIN?", forgotQ: "Erase Riaya from this phone? You can restore your record later with your recovery code.",
           erase: "Erase from this phone", cancel: "Cancel", wait: s => `Too many tries. Wait ${s} s.`, del: "Delete", locked: "Locked",
           lockNow: "Lock now", change: "Change PIN", bioOn: "Face ID / fingerprint is on", bioOff: "Turn on Face ID / fingerprint",
-          card: "App lock", cardSub: "Riaya locks every time you open it or come back from another app. Documents on this phone are encrypted." },
+          card: "App lock", cardSub: "Riaya locks every time you open it or come back from another app. Documents on this phone are encrypted.",
+          bioT: "Unlock with Face ID or fingerprint?", bioSub: "Faster than your PIN, and your face or fingerprint never leaves this phone. Your PIN still works.",
+          bioYes: "Use Face ID / fingerprint", notNow: "Not now", bioDone: "All set", bioFail: "That didn't work. You can turn it on later in Privacy." },
     ar: { title: "رعاية مقفلة", sub: "أدخل رمزك", setT: "احمِ رعاية برمز سري", setSub: "يبقى ملخصك وتقاريرك ورسائلك مقفلة حتى تدخله. من ٤ إلى ٦ أرقام.",
           again: "أدخله مرة أخرى", wrong: "الرمز غير صحيح", mismatch: "الرمزان غير متطابقين. حاول مرة أخرى.", bio: "استخدم بصمة الوجه / الإصبع",
           bioSet: "افتح أيضاً ببصمة الوجه / الإصبع", forgot: "نسيت الرمز؟", forgotQ: "هل تريد مسح رعاية من هذا الهاتف؟ يمكنك استعادة سجلك لاحقاً برمز الاسترداد.",
           erase: "امسح من هذا الهاتف", cancel: "إلغاء", wait: s => `محاولات كثيرة. انتظر ${s} ثانية.`, del: "حذف", locked: "مقفلة",
           lockNow: "اقفل الآن", change: "غيّر الرمز", bioOn: "بصمة الوجه / الإصبع مفعّلة", bioOff: "فعّل بصمة الوجه / الإصبع",
-          card: "قفل التطبيق", cardSub: "تُقفل رعاية في كل مرة تفتحها أو تعود إليها من تطبيق آخر. المستندات على هذا الهاتف مشفّرة." },
+          card: "قفل التطبيق", cardSub: "تُقفل رعاية في كل مرة تفتحها أو تعود إليها من تطبيق آخر. المستندات على هذا الهاتف مشفّرة.",
+          bioT: "هل تفتح ببصمة الوجه أو الإصبع؟", bioSub: "أسرع من الرمز، وبصمتك لا تغادر هذا الهاتف أبداً. يبقى رمزك صالحاً.",
+          bioYes: "استخدم بصمة الوجه / الإصبع", notNow: "ليس الآن", bioDone: "تم", bioFail: "لم ينجح ذلك. يمكنك تفعيله لاحقاً من الخصوصية." },
   };
   const L = () => ((typeof LANG !== "undefined" ? LANG : document.documentElement.lang) === "ar" ? "ar" : "en");
   const x = k => T[L()][k];
@@ -94,6 +98,10 @@
     } catch { return false; }
   }
 
+  const BIO_ICON = `<svg viewBox="0 0 64 64" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M6 20V12a6 6 0 0 1 6-6h8M44 6h8a6 6 0 0 1 6 6v8M58 44v8a6 6 0 0 1-6 6h-8M20 58h-8a6 6 0 0 1-6-6v-8"/>
+    <path d="M23 24v4M41 24v4M32 24v12h-3M24 43c4.5 4 11.5 4 16 0"/></svg>`;
+
   // ---------- state
   const hasPin = () => !!read();
   const isOpen = () => ss.get(UNLOCK_FLAG) === "1";
@@ -121,8 +129,15 @@
     .lk .pad .ghost { border: 0; background: transparent; font-size: 15px; }
     .lk .lnk { background: none; border: 0; color: #c9a86a; font: inherit; font-size: 14px; cursor: pointer; padding: 8px; }
     .lk .msg { min-height: 20px; color: #f0b3a8; font-size: 14px; }
-    .lk label { display: flex; gap: 8px; align-items: center; font-size: 14px; color: #d6dde0; }
-    @media (prefers-reduced-motion: reduce) { .lk .dots.shake { animation: none; } }`;
+    .lk .bioic { width: 96px; height: 96px; color: #c9a86a; margin: 6px 0 4px; } .lk .bioic.ok { color: #9be15d; }
+    .lk .bioic svg path { stroke-dasharray: 220; stroke-dashoffset: 220; animation: lkdraw 1.1s cubic-bezier(.2,.8,.2,1) forwards; }
+    @keyframes lkdraw { to { stroke-dashoffset: 0; } }
+    .lk .primary { min-width: 260px; padding: 15px 22px; border-radius: 999px; border: 0; background: #eef0ec; color: #0f2a3a; font: 600 16px/1 inherit; cursor: pointer; margin-top: 12px; }
+    .lk .primary:focus-visible { outline: 3px solid #c9a86a; outline-offset: 3px; }
+    .lk .step { display: flex; flex-direction: column; align-items: center; gap: 10px; animation: lkin .35s cubic-bezier(.2,.8,.2,1); }
+    @keyframes lkin { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    .lk .pad .bio { color: #c9a86a; padding: 20px; }
+    @media (prefers-reduced-motion: reduce) { .lk .dots.shake, .lk .step, .lk .bioic svg path { animation: none; stroke-dashoffset: 0; } }`;
   document.head.appendChild(css);
 
   function show(setup) {
@@ -137,15 +152,13 @@
       <h2 id="lkT">${esc(mode === "set" ? x("setT") : x("title"))}</h2><p id="lkS">${esc(mode === "set" ? x("setSub") : x("sub"))}</p>
       <div class="dots" id="lkD" aria-hidden="true">${"<i></i>".repeat(6)}</div><div class="msg" id="lkM" role="status" aria-live="assertive"></div>
       <div class="pad" role="group" aria-label="PIN">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<button type="button" data-k="${n}">${n}</button>`).join("")}
-        <button type="button" class="ghost" data-k="bio" aria-label="${esc(x("bio"))}" ${mode === "unlock" && s && s.bio ? "" : "style='visibility:hidden'"}>◉</button>
+        <button type="button" class="ghost bio" data-k="bio" aria-label="${esc(x("bio"))}" ${mode === "unlock" && s && s.bio ? "" : "style='visibility:hidden'"}>${BIO_ICON}</button>
         <button type="button" data-k="0">0</button><button type="button" class="ghost" data-k="back" aria-label="${esc(x("del"))}">⌫</button></div>
-      ${mode === "set" ? `<label id="lkBioWrap" hidden><input type="checkbox" id="lkBio" checked> ${esc(x("bioSet"))}</label>
-        <button type="button" class="lnk" id="lkOk" hidden>OK</button>` : `<button type="button" class="lnk" id="lkForgot">${esc(x("forgot"))}</button>`}`;
+      ${mode === "set" ? `<button type="button" class="lnk" id="lkOk" hidden>OK</button>` : `<button type="button" class="lnk" id="lkForgot">${esc(x("forgot"))}</button>`}`;
     document.body.appendChild(sheet);
     const dots = sheet.querySelector("#lkD"), msg = sheet.querySelector("#lkM");
     const paint = () => [...dots.children].forEach((d, i) => d.classList.toggle("on", i < entry.length));
     const shake = t => { msg.textContent = t; dots.classList.remove("shake"); void dots.offsetWidth; dots.classList.add("shake"); entry = ""; paint(); };
-    if (mode === "set") bioAvailable().then(ok => { if (ok) sheet.querySelector("#lkBioWrap").hidden = false; });
     const submit = async () => {
       if (mode === "unlock") {
         if (Date.now() < until) return shake(x("wait")(Math.ceil((until - Date.now()) / 1000)));
@@ -158,9 +171,25 @@
       const salt = crypto.getRandomValues(new Uint8Array(16));
       write({ salt: b64(salt), hash: await hash(entry, salt), len: entry.length, at: Date.now() });
       await getKey().catch(() => {});
-      const bioBox = sheet.querySelector("#lkBio");
-      if (bioBox && !sheet.querySelector("#lkBioWrap").hidden && bioBox.checked) await enrolBio().catch(() => {});
+      if (await bioAvailable()) return bioStep();
       open();
+    };
+    // second step after the PIN: offer Face ID / fingerprint as its own clear choice
+    const bioStep = () => {
+      sheet.innerHTML = `<div class="step"><div class="bioic" id="lkBi">${BIO_ICON}</div>
+        <h2>${esc(x("bioT"))}</h2><p>${esc(x("bioSub"))}</p>
+        <button type="button" class="primary" id="lkYes">${esc(x("bioYes"))}</button>
+        <button type="button" class="lnk" id="lkNo">${esc(x("notNow"))}</button><div class="msg" id="lkM2" role="status" aria-live="polite"></div></div>`;
+      sheet.querySelector("#lkNo").onclick = () => open();
+      sheet.querySelector("#lkYes").onclick = async () => {
+        const ok = await enrolBio().catch(() => false);
+        if (!ok) { sheet.querySelector("#lkM2").textContent = x("bioFail"); setTimeout(open, 1800); return; }
+        const ic = sheet.querySelector("#lkBi"); ic.classList.add("ok");
+        ic.innerHTML = `<svg viewBox="0 0 64 64" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M32 4a28 28 0 1 1 0 56a28 28 0 1 1 0-56M20 33l8 8 16-17"/></svg>`;
+        sheet.querySelector("h2").textContent = x("bioDone");
+        setTimeout(open, 900);
+      };
+      setTimeout(() => sheet.querySelector("#lkYes").focus(), 30);
     };
     const press = async k => {
       msg.textContent = "";

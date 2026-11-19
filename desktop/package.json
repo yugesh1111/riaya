@@ -1,0 +1,19 @@
+{
+  "name": "riaya",
+  "productName": "Riaya",
+  "version": "1.0.0",
+  "description": "Riaya: a private front door to men's reproductive health",
+  "main": "main.js",
+  "author": "Riaya team",
+  "license": "UNLICENSED",
+  "scripts": { "start": "electron .", "dist": "electron-builder --mac dmg --universal" },
+  "build": {
+    "appId": "ae.riaya.desktop",
+    "productName": "Riaya",
+    "directories": { "output": "dist" },
+    "files": ["main.js", "preload.js", "offline.html"],
+    "mac": { "category": "public.app-category.medical", "icon": "build/icon.png", "target": ["dmg"], "identity": null },
+    "dmg": { "title": "Riaya" }
+  },
+  "devDependencies": { "electron": "33.2.1", "electron-builder": "25.1.8" }
+}
