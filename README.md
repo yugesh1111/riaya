@@ -7,7 +7,7 @@
 
 **Arabic-first · voice-first · locked by default · built for Abu Dhabi**
 
-[**Try it live**](https://riaya-xhby.onrender.com) · [**Demo video (English)**](https://youtu.be/9WLX1obk9Z8) · [Demo video (Arabic)](https://youtu.be/UkW8BvTJ8Gw) · [Download Android & Mac apps](https://github.com/yugesh1111/riaya/releases/tag/v1.0.0) · [Impact simulator](https://riaya-xhby.onrender.com/impact.html) · [Privacy map](https://riaya-xhby.onrender.com/privacy-map.html) · [Security](docs/SECURITY.md)
+[**Try it live**](https://riaya-xhby.onrender.com) · [**Demo video (English)**](https://youtu.be/UkW8BvTJ8Gw) · [Demo video (Arabic)](https://youtu.be/9WLX1obk9Z8) · [Download Android & Mac apps](https://github.com/yugesh1111/riaya/releases/tag/v1.0.0) · [Impact simulator](https://riaya-xhby.onrender.com/impact.html) · [Privacy map](https://riaya-xhby.onrender.com/privacy-map.html) · [Security](docs/SECURITY.md)
 
 </div>
 
