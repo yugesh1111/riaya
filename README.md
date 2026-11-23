@@ -21,6 +21,19 @@
   <img src="docs/shots/21-calculator-cover.png" width="19%" alt="Calculator cover">
 </p>
 
+## 👩‍⚖️ Judges: start here
+
+| | |
+|---|---|
+| 🎥 **Demo video** (2:54) | [English](https://youtu.be/UkW8BvTJ8Gw) · [Arabic](https://youtu.be/9WLX1obk9Z8) |
+| 🌐 **Try it live** | [riaya-xhby.onrender.com](https://riaya-xhby.onrender.com) (free hosting: the first load can take up to a minute) |
+| 📑 **Submission deck** | [docs/Riaya_Submission.pdf](docs/Riaya_Submission.pdf) (24 slides, with a step-by-step workflow and every feature on screen) |
+| 🗺 **How it works** | [Feature map](https://riaya-xhby.onrender.com/features.html) · [Privacy map](https://riaya-xhby.onrender.com/privacy-map.html) · [Impact simulator](https://riaya-xhby.onrender.com/impact.html) |
+
+The video had to stay under 3 minutes, so some features are not in it: **Watch first, the UAE heat guard, lab forecasts, the 12-week companion and the doctor console**. All of them are working and shown below, each recorded from the running app.
+
+**Every remark from the judges was taken**, and a lot was improved after the review. What changed for each point is in [`docs/FEEDBACK_RESPONSE.md`](docs/FEEDBACK_RESPONSE.md) and in "Added after the review feedback" further down.
+
 ## 🏆 Why Riaya stands out: the top 12, ranked
 
 | Rank | Feature | Why it matters |
@@ -206,8 +219,8 @@ See `docs/SECURITY.md` (attacks and protections), `docs/WELLBEING_QA_RESPONSE.md
 - **Intake** in Arabic and English, using validated instruments: STOP-Bang, AUDIT-C, PHQ-2, PSS-4 and ADAM.
 - **Device data**: Apple Health export (sleep, steps, HRV, SpO2, glucose, caffeine, alcohol), Dexcom/Libre CGM CSV, a generic daily CSV (Fitbit/Garmin/Health Connect/screen time), or manual entry. Raw files are never stored.
 - **Test results**: interpreted against WHO 2021 reference limits, from a lab report, a quantitative smartphone device (YO-type) or a simple home test.
-- **Explainability**: Shapley attribution over the evidence graph, a gradient-boosting model with a SHAP waterfall (simulated cohort with literature effect sizes), and a logistic model trained on real data (UCI Fertility, n=100) as a second opinion.
-- **Triage**: deterministic, ordered rules, each citing its guideline. Red flags override everything. Clinician approval is required for specialist referrals.
+- **Explainability**: noisy-OR scoring and Shapley attribution over the evidence graph, a gradient-boosting model with a SHAP waterfall (simulated cohort with literature effect sizes), and a logistic model trained on real data (UCI Fertility, n=100) as a second opinion.
+- **Triage**: deterministic, ordered rules, each citing its guideline (WHO 2021, AUA/ASRM, EAU). Red flags override everything and send him to emergency care (998) or a same-day review. Clinician approval is required for specialist referrals.
 - **Clinician console**: review queue, case explanation, approve/modify, booking and attendance tracking, outcome and fairness metrics, access log.
 - **IFHAS hand-off**: FHIR R4 Bundle export.
 - **Privacy**: no identity data, granular consent, encryption at rest, revocable share codes, delete/export, audit log.
@@ -264,7 +277,8 @@ Settings (environment variables): `RIAYA_DATA_KEY` (Fernet key for encryption at
 - `docs/SECURITY.md`: every way someone could try to get at the data, what stops them, and what is still open
 - `docs/WELLBEING_QA_RESPONSE.md`: the organisers' 10 Wellbeing Q&A questions, what is covered, what was added and what is still open
 - `docs/VIDEO_PLAN.md`: the demo video plan and feature line-up
-- `docs/Riaya_Submission.pptx` / `.pdf`: the challenge submission slides, filled in (team names and size to add)
+- `docs/Riaya_Submission.pdf` / `.pptx`: the challenge submission deck (24 slides): every template section, a step-by-step workflow, the architecture, and seven "see it working" slides
+- Demo video: [English](https://youtu.be/UkW8BvTJ8Gw) · [Arabic](https://youtu.be/9WLX1obk9Z8) (under 3 minutes)
 - `docs/gifs/`, `docs/videos/`, `docs/shots/`: every feature recorded from the running app
 - `docs/VIDEO_SCRIPT.md`: the narration to read, scene by scene with timings, in English and Arabic, plus Napkin AI text
 - `docs/recovery/`: the API description captured from the live deployment, used to rebuild the backend after the repository was lost
